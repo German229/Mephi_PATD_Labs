@@ -1,0 +1,39 @@
+# === CMake build ===
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+build/
+*.cmake
+
+# === Executables ===
+*.exe
+*.dll
+*.out
+*.a
+*.lib
+*.so
+
+# === CLion / JetBrains ===
+.idea/
+*.iml
+
+# === Logs, dumps, temp ===
+*.log
+*.tmp
+*.swp
+
+# === Archives ===
+*.zip
+*.rar
+*.tar.gz
+*.7z
+
+# === OS/system files ===
+.DS_Store
+Thumbs.db
+
+# === Python/venv (на всякий случай) ===
+__pycache__/
+*.pyc
+.venv/
