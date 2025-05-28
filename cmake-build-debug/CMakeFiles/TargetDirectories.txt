@@ -1,0 +1,3 @@
+/Users/germangolod/JetbrainsProjects/ClionProjects/Mephi_PATD_Labs/cmake-build-debug/CMakeFiles/Mephi_PATD_Labs.dir
+/Users/germangolod/JetbrainsProjects/ClionProjects/Mephi_PATD_Labs/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/germangolod/JetbrainsProjects/ClionProjects/Mephi_PATD_Labs/cmake-build-debug/CMakeFiles/rebuild_cache.dir
