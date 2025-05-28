@@ -1,4 +1,0 @@
-/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/usr/bin/make -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -G "Unix Makefiles" -S /Users/germangolod/JetbrainsProjects/ClionProjects/Mephi_PATD_Labs -B /Users/germangolod/JetbrainsProjects/ClionProjects/Mephi_PATD_Labs/cmake-build-debug
--- Configuring done (0.0s)
--- Generating done (0.0s)
--- Build files have been written to: /Users/germangolod/JetbrainsProjects/ClionProjects/Mephi_PATD_Labs/cmake-build-debug
