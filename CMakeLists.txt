@@ -25,10 +25,11 @@ add_executable(lab3
 
 # Лабораторная 4 — C++
 add_executable(lab4
-        Semester_2_Lab_4/main_res.cpp
+        Semester_2_Lab_4/main_resx.cpp
 )
 
 # Лабораторная 5 — C++
 add_executable(lab5
-        Semester_2_Lab_5/Segmented_deque.cpp
+        Semester_2_Lab_5/main.cpp
+        Semester_2_Lab_5/Deque.cpp
 )
