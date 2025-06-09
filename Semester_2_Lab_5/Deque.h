@@ -34,5 +34,5 @@ public:
 
     void rotate_left(int k);
     void rotate_right(int k);
-    bool is_sorted(bool ascending = true); // убрали const
+    bool is_sorted(bool ascending = true);
 };
