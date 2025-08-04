@@ -25,7 +25,7 @@ add_executable(lab3
 
 # Лабораторная 4 — C++
 add_executable(lab4
-        Semester_2_Lab_4/main_resx.cpp
+        Semester_2_Lab_4/main_res.cpp
 )
 
 # Лабораторная 5 — C++
