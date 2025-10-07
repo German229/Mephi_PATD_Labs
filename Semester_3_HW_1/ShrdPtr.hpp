@@ -1,12 +1,12 @@
 #pragma once
 #include "UnqPtr.hpp"
-#include <cstddef>
 #include <type_traits>
 
 template<typename T>
 class ShrdPtr {
-    T* ptr;
-    int* refCount;
+private:
+    T* ptr = nullptr;
+    int* refCount = nullptr;
 
     void release() {
         if (refCount) {
@@ -18,15 +18,11 @@ class ShrdPtr {
         }
     }
 public:
-    ShrdPtr() : ptr(nullptr), refCount(nullptr) {}
+    ShrdPtr() = default;
 
     explicit ShrdPtr(UnqPtr<T>&& u) {
         ptr = u.release();
-        if (ptr) {
-            refCount = new int(1);
-        } else {
-            refCount = nullptr;
-        }
+        if (ptr) refCount = new int(1);
     }
 
     ShrdPtr(const ShrdPtr& other) : ptr(other.ptr), refCount(other.refCount) {

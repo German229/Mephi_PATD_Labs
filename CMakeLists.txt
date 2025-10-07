@@ -39,4 +39,6 @@ add_executable(hw1
         Semester_3_HW_1/main.cpp
         Semester_3_HW_1/UnqPtr.hpp
         Semester_3_HW_1/ShrdPtr.hpp
+        Semester_3_HW_1/Sequence.hpp
+        Semester_3_HW_1/tests.hpp
 )

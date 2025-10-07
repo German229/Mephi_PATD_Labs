@@ -2,6 +2,7 @@
 
 template<typename T>
 class UnqPtr {
+private:
     T* ptr;
 public:
     UnqPtr(T* p = nullptr) : ptr(p) {}
