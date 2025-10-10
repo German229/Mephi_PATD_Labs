@@ -42,3 +42,17 @@ add_executable(hw1
         Semester_3_HW_1/Sequence.hpp
         Semester_3_HW_1/tests.hpp
 )
+
+# Лабораторная 2 семестр 3 — C++
+add_executable(lab_2_sem_3
+        Semester_3_Lab_2/main.cpp
+        Semester_3_Lab_2/AI.cpp
+        Semester_3_Lab_2/AI.hpp
+        Semester_3_Lab_2/Board.cpp
+        Semester_3_Lab_2/Board.hpp
+        Semester_3_Lab_2/dynamic_array.h
+        Semester_3_Lab_2/Lists.h
+        Semester_3_Lab_2/sequence.h
+        Semester_3_Lab_2/Tests.cpp
+        Semester_3_Lab_2/Tests.hpp
+)
