@@ -55,4 +55,32 @@ add_executable(lab_2_sem_3
         Semester_3_Lab_2/sequence.h
         Semester_3_Lab_2/Tests.cpp
         Semester_3_Lab_2/Tests.hpp
+        Semester_3_Lab_2/Gui.cpp
+        Semester_3_Lab_2/Gui.hpp
 )
+option(ENABLE_GUI "Build with SFML GUI (USE_SFML)" ON)
+
+if (ENABLE_GUI)
+    # Путь к конфигу SFML, установленному через Homebrew
+    set(SFML_DIR "/opt/homebrew/opt/sfml/lib/cmake/SFML")
+
+    # SFML 3.x: компоненты с Заглавной буквы
+    find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System)
+
+    message(STATUS "SFML FOUND -> GUI enabled")
+
+    target_compile_definitions(lab_2_sem_3 PRIVATE USE_SFML)
+
+    # Линкуем цели SFML 3.x
+    target_link_libraries(lab_2_sem_3
+            PRIVATE
+            SFML::Graphics
+            SFML::Window
+            SFML::System
+    )
+
+    if (APPLE)
+        set(CMAKE_FIND_FRAMEWORK FIRST)
+    endif ()
+endif ()
+

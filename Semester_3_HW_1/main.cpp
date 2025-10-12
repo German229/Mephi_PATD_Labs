@@ -5,13 +5,16 @@
 #include "UnqPtr.hpp"
 #include "ShrdPtr.hpp"
 #include "Sequence.hpp"
-#include "Tests.hpp"
+#include "tests.hpp"
 
 static void run_repl() {
     std::cout << "Interactive mode. Type 'help' for commands.\n";
 
     Sequence<TestBase> seq;
     ShrdPtr<TestBase> last_ptr;
+
+    // для демонстрации массивов
+    ShrdPtr<int[]> last_arr;
 
     std::string line;
     while (std::cout << "> " && std::getline(std::cin, line)) {
@@ -30,6 +33,9 @@ static void run_repl() {
                 "  seq_clear                - clear sequence by reassign (drop refs)\n"
                 "  bench N                  - run raw vs shared benchmarks with N and show time/rss\n"
                 "  leak N                   - create/destroy N TestTracked via ShrdPtr; ensure alive==0\n"
+                "  mkarr N                  - create ShrdPtr<int[]> of size N, fill, show sample & use_count\n"
+                "  arr_copy                 - copy last array to test use_count\n"
+                "  arr_show I               - show last array element at index I\n"
                 "  auto [N]                 - run full automatic tests (like default)\n"
                 "  quit / exit              - leave\n";
         } else if (cmd == "quit" || cmd == "exit") {
@@ -87,6 +93,28 @@ static void run_repl() {
                 { ShrdPtr<TestTracked> s2 = s; (void)s2; }
             }
             std::cout << "alive=" << TestTracked::alive << (TestTracked::alive==0 ? " (OK)\n" : " (LEAK!)\n");
+
+        // ===== массивы =====
+        } else if (cmd == "mkarr") {
+            int n; if (!(iss >> n) || n <= 0) { std::cout << "usage: mkarr N\n"; continue; }
+            UnqPtr<int[]> ua(new int[n]);
+            for (int i=0;i<n;++i) ua[i] = i * 10;
+
+            // без промежуточного shared ‘sa’, сразу в last_arr (move)
+            last_arr = ShrdPtr<int[]>(std::move(ua));  // use_count = 1
+            std::cout << "arr size~" << n
+                      << " sample: [0]=" << last_arr[0]
+                      << (n>1 ? (std::string(" [1]=") + std::to_string(last_arr[1])) : "")
+                      << " use_count=" << last_arr.use_count() << "\n";
+        } else if (cmd == "arr_copy") {
+            if (!last_arr) { std::cout << "no array yet. use mkarr N\n"; continue; }
+            ShrdPtr<int[]> copy = last_arr;
+            std::cout << "array copied. use_count=" << last_arr.use_count() << "\n";
+
+        } else if (cmd == "arr_show") {
+            if (!last_arr) { std::cout << "no array yet. use mkarr N\n"; continue; }
+            int idx; if (!(iss >> idx) || idx < 0) { std::cout << "usage: arr_show I\n"; continue; }
+            std::cout << "arr[" << idx << "]=" << last_arr[idx] << "\n";
 
         } else if (cmd == "auto") {
             int N = 100000;

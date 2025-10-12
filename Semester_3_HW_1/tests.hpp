@@ -33,6 +33,7 @@ struct TestTracked {
     TestTracked() { ++alive; }
     explicit TestTracked(int x): v(x) { ++alive; }
     TestTracked(const TestTracked& o): v(o.v) { ++alive; }
+    // ---- FIX: было Tracked&&, должно быть TestTracked&&
     TestTracked(TestTracked&& o) noexcept: v(o.v) { ++alive; o.v = 0; }
     ~TestTracked(){ --alive; }
 };
@@ -55,7 +56,7 @@ inline std::uint64_t tests_rss_bytes() {
 #endif
 }
 
-// ==== Функциональные тесты ====
+// ==== Функциональные тесты (одиночные объекты) ====
 inline void run_functional_tests_header_only() {
     // UnqPtr
     {
@@ -94,6 +95,43 @@ inline void run_functional_tests_header_only() {
     }
 }
 
+// ==== Функциональные тесты для МАССИВОВ (T=U[]) ====
+inline void run_array_tests_header_only() {
+    // 1) UnqPtr<int[]> + заполнение + move в ShrdPtr<int[]>
+    {
+        const std::size_t N = 5;
+        UnqPtr<int[]> ua(new int[N]);
+        for (std::size_t i = 0; i < N; ++i) ua[i] = int(i * 10);
+
+        ShrdPtr<int[]> sa(std::move(ua));
+        assert(sa && sa.use_count() == 1);
+        assert(sa[0] == 0 && sa[4] == 40);
+
+        ShrdPtr<int[]> sb = sa;
+        assert(sb.use_count() == 2);
+        assert(sb[2] == 20);
+    }
+
+    // 2) Принятие уже выделенного массива (raw → UnqPtr<int[]> → ShrdPtr<int[]>)
+    {
+        const std::size_t N = 3;
+        int* raw = new int[N];
+        raw[0] = 7; raw[1] = 8; raw[2] = 9;
+
+        UnqPtr<int[]> ua(raw);
+        ShrdPtr<int[]> sa(std::move(ua));
+        assert(sa && sa.use_count() == 1);
+        assert(sa[1] == 8);
+
+        {
+            ShrdPtr<int[]> sc = sa;
+            assert(sc.use_count() == 2);
+            assert(sc[2] == 9);
+        }
+        assert(sa.use_count() == 1);
+    }
+}
+
 // ==== Бенчмарки (время + RSS) ====
 struct BenchResult { const char* variant; int N; long long ms; std::uint64_t rss; };
 
@@ -123,16 +161,16 @@ inline BenchResult bench_shared_header_only(int N) {
 
 inline void write_csv_header_only(const BenchResult& a, const BenchResult& b, const std::string& path = "bench.csv") {
     std::ofstream f(path, std::ios::trunc);
-    if (!f) return; // молча выходим, если не удалось открыть
+    if (!f) return;
     f << "variant,N,ms,rss_bytes\n";
     f << a.variant << "," << a.N << "," << a.ms << "," << a.rss << "\n";
     f << b.variant << "," << b.N << "," << b.ms << "," << b.rss << "\n";
 }
 
-
 // ==== Запуск всего комплекта ====
 inline void run_all_tests_header_only(int N) {
     run_functional_tests_header_only();
+    run_array_tests_header_only();   // тесты для массивов
 
     // Проверка утечек на больших N
     {
