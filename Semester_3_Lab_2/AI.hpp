@@ -16,33 +16,41 @@ struct AIStats {
 
 class AI {
 public:
-    // Параметры
+    // Параметры поиска
     int  maxDepth = 9;
     bool useAlphaBeta = true; // true -> Alpha-Beta, false -> чистый Minimax
+
+    // Параметры производительности
+    int candidateMargin = 1;   // рамка генерации вокруг занятой области (±margin)
+    int maxCandidates   = 16;  // брать только топ-N кандидатов после упорядочивания
 
     // Единый интерфейс: найти лучший ход за символ ai ('O' обычно, но можно и 'X' для подсказки).
     AIMove FindBestMove(const Board& board, char ai);
 
-    // СТАРЫЕ ИМЕНА (для совместимости с тестами) — обёртки:
-    AIMove FindBestMoveMinimax(const Board& board, char ai);     // вызывает FindBestMove с useAlphaBeta=false
-    AIMove FindBestMoveAlphaBeta(const Board& board, char ai);   // вызывает FindBestMove с useAlphaBeta=true
+    // Для тестов — обёртки:
+    AIMove FindBestMoveMinimax(const Board& board, char ai);
+    AIMove FindBestMoveAlphaBeta(const Board& board, char ai);
 
-    // Последняя статистика (узлы) для каждого режима
+    // Последняя статистика
     AIStats lastStatsMinimax{};
     AIStats lastStatsAlpha{};
 
 private:
-    // Генерация кандидатов в окне [minX-1..maxX+1] x [minY-1..maxY+1] + сортировка (move ordering).
+    // Генерация кандидатов и упорядочивание
     std::vector<std::pair<int,int>> generateCandidates(const Board& board) const;
     void orderCandidates(const Board& board, std::vector<std::pair<int,int>>& cands, char sideToMove) const;
 
-    // Тактический слой: «выиграть сейчас / заблокировать сейчас»
+    // Тактика: «выиграть сейчас / заблокировать сейчас»
     static bool hasImmediateWin(Board board, int x, int y, char who);
 
-    // Терминальная оценка после последнего хода whoMoved в (lastX, lastY)
+    // Терминальная и статическая оценки (возвращают счёт с т. зр. X)
     int evaluateTerminalAfterMove(const Board& b, int lastX, int lastY, char whoMoved, int depth) const;
+    int evaluateStatic(const Board& b) const;
 
-    // Minimax / Alpha-Beta (возвращают оценку с т. зр. X)
-    int minimax(Board state, int depth, bool isMax, int lastX, int lastY, AIStats& stats);
+    // Быстрый «умный 1-плай» (без рекурсии) — выбирает ход по статической оценке
+    AIMove greedyOnePly(const Board& board, char ai);
+
+    // Minimax / AlphaBeta
+    int minimax (Board state, int depth, bool isMax, int lastX, int lastY, AIStats& stats);
     int minimaxAB(Board state, int depth, bool isMax, int lastX, int lastY, int alpha, int beta, AIStats& stats);
 };

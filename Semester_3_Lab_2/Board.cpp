@@ -22,7 +22,7 @@ bool Board::toIndex(int x, int y, int& row, int& col) const {
 
 Board::Board()
 : grid(), width(1), height(1), offsetX(0), offsetY(0),
-  minX(1), maxX(0), minY(1), maxY(0) // так min>max означает «нет ни одного хода»
+  minX(1), maxX(0), minY(1), maxY(0), winK(3)
 {
     // Инициализируем сетку 1x1 c '.'
     auto* rows = new MutableArraySequence<char>[1];
@@ -35,7 +35,6 @@ Board::Board()
 
 void Board::expandLeft() {
     int newW = width + 1;
-    // Для каждой строки создаём буфер на 1 больше, вставляем '.' слева, копируем остальное
     for (int r = 0; r < height; ++r) {
         MutableArraySequence<char> oldRow = grid.Get(r);
         char* buf = new char[newW];
@@ -64,9 +63,7 @@ void Board::expandRight() {
 void Board::expandUp() {
     int newH = height + 1;
     auto* rows = new MutableArraySequence<char>[newH];
-    // Новая верхняя строка — вся '.'
-    rows[0] = makeRow(width, '.');
-    // Остальные копируем
+    rows[0] = makeRow(width, '.'); // новая верхняя строка
     for (int r = 0; r < height; ++r) rows[r + 1] = grid.Get(r);
     grid = MutableArraySequence<MutableArraySequence<char>>(rows, newH);
     delete[] rows;
@@ -78,7 +75,7 @@ void Board::expandDown() {
     int newH = height + 1;
     auto* rows = new MutableArraySequence<char>[newH];
     for (int r = 0; r < height; ++r) rows[r] = grid.Get(r);
-    rows[newH - 1] = makeRow(width, '.');
+    rows[newH - 1] = makeRow(width, '.'); // новая нижняя строка
     grid = MutableArraySequence<MutableArraySequence<char>>(rows, newH);
     delete[] rows;
     height = newH;
@@ -152,12 +149,14 @@ int Board::countInDirection(int x, int y, int dx, int dy) const {
 }
 
 bool Board::CheckWin(int x, int y) const {
+    // Если клетка пустая — победы нет
+    char s = GetCell(x, y);
+    if (s != 'X' && s != 'O') return false;
+
     // 4 направления: горизонталь, вертикаль, диагонали
-    static const int dirs[4][2] = {
-        {1, 0}, {0, 1}, {1, 1}, {1, -1}
-    };
+    static const int dirs[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
     for (auto& d : dirs) {
-        if (countInDirection(x, y, d[0], d[1]) >= 3) return true;
+        if (countInDirection(x, y, d[0], d[1]) >= winK) return true; // <-- используем winK
     }
     return false;
 }
@@ -179,4 +178,10 @@ void Board::Print() const {
     std::cout << "\n      ";
     for (int x = minX; x <= maxX; ++x) std::cout << x % 10 << ' ';
     std::cout << "\n";
+}
+
+void Board::SetWinK(int k) {
+    if (k < 3) k = 3;
+    if (k > 10) k = 10; // можно расширить лимит при желании
+    winK = k;
 }

@@ -29,10 +29,19 @@ static void printHelp() {
       "  depth N    — установить глубину поиска AI = N\n"
       "  mode ab    — включить Alpha-Beta\n"
       "  mode min   — включить чистый Minimax\n"
+      "  win K      — установить правило: K в ряд для победы (по умолчанию 3)\n"
       "  ui         — запустить графический интерфейс (SFML)\n"
       "  print      — вывести текущее поле\n"
       "  help       — показать это сообщение\n"
       "  quit       — выход\n";
+}
+
+// Небольшая вспомогательная функция: эффективная глубина под правило winK.
+static int effectiveDepth(int requested, int winK) {
+    // Для 3-в-ряд можно глубже; для 4/5 ограничиваем, чтобы не фризило
+    if (winK >= 5) return std::min(requested, 4);
+    if (winK == 4) return std::min(requested, 5);
+    return requested; // winK==3
 }
 
 int main(int argc, char** argv) {
@@ -48,18 +57,18 @@ int main(int argc, char** argv) {
     // Быстрый запуск GUI, если аргумент --ui
     if (argc > 1 && std::string(argv[1]) == "--ui") {
         GuiApp app;
-        bool finished = app.run(board, ai, 3);
+        bool finished = app.run(board, ai, board.GetWinK());
         if (finished) {
             std::cout << "[GUI] Партия завершена. Выход.\n";
             return 0;
         }
-        // если не финал — вернёмся в консольный режим:
         std::cout << "[GUI] Возврат в консольный режим.\n";
     }
 
     char turn = 'X';
     std::cout << "=== Крестики-нолики на бесконечном поле ===\n";
     std::cout << "Игрок X — вы. Игрок O — AI.\n";
+    std::cout << "Правило: победа при " << board.GetWinK() << " в ряд.\n";
     printHelp();
     std::cout << "\n";
 
@@ -94,20 +103,36 @@ int main(int argc, char** argv) {
             if (line == "help") { printHelp(); continue; }
             if (line == "print") { board.Print(); continue; }
 
+            if (line.rfind("win ", 0) == 0) {
+                int k = std::max(3, std::atoi(line.substr(4).c_str()));
+                board.SetWinK(k);
+                std::cout << "Правило: победа при " << board.GetWinK() << " в ряд.\n";
+                // Подстройка глубины под новое правило (чтобы не фризило)
+                int suggested = (board.GetWinK() >= 5) ? 4 : (board.GetWinK() == 4 ? 5 : 8);
+                if (ai.maxDepth > suggested) {
+                    ai.maxDepth = suggested;
+                    std::cout << "Для стабильности уменьшаю глубину до " << ai.maxDepth << "\n";
+                }
+                continue;
+            }
+
             if (line == "ui") {
                 GuiApp app;
-                bool finished = app.run(board, ai, 3); // GUI ведёт ту же партию
+                bool finished = app.run(board, ai, board.GetWinK()); // передаём актуальное K
                 std::cout << "[GUI] Возврат в консольный режим.\n";
-                board.Print(); // покажем актуальное поле после GUI
+                board.Print();
                 if (finished) {
                     std::cout << "Партия завершена. Выход.\n";
-                    break;  // ← НИЧЕГО БОЛЬШЕ НЕ СПРАШИВАЕМ
+                    break;
                 }
                 continue;
             }
 
             if (line == "hint") {
-                AI hintAI = ai; // те же настройки
+                // Используем эффективную глубину под текущее правило
+                AI hintAI = ai;
+                hintAI.maxDepth = effectiveDepth(hintAI.maxDepth, board.GetWinK());
+
                 auto t1 = std::chrono::high_resolution_clock::now();
                 auto mv = hintAI.FindBestMove(board, 'X');
                 auto t2 = std::chrono::high_resolution_clock::now();
@@ -121,8 +146,8 @@ int main(int argc, char** argv) {
             }
 
             if (line == "bench") {
-                AI a1 = ai; a1.useAlphaBeta = false;
-                AI a2 = ai; a2.useAlphaBeta = true;
+                AI a1 = ai; a1.useAlphaBeta = false; a1.maxDepth = effectiveDepth(a1.maxDepth, board.GetWinK());
+                AI a2 = ai; a2.useAlphaBeta = true;  a2.maxDepth = effectiveDepth(a2.maxDepth, board.GetWinK());
 
                 auto t1 = std::chrono::high_resolution_clock::now();
                 auto m1 = a1.FindBestMove(board, 'X');
@@ -163,15 +188,19 @@ int main(int argc, char** argv) {
             std::cout << "[O] Ходит AI (" << (ai.useAlphaBeta ? "Alpha-Beta" : "Minimax")
                       << ", depth=" << ai.maxDepth << ")...\n";
 
+            // Эффективная глубина под текущее правило, чтобы ход считался быстро
+            AI aiForMove = ai;
+            aiForMove.maxDepth = effectiveDepth(aiForMove.maxDepth, board.GetWinK());
+
             auto t1 = std::chrono::high_resolution_clock::now();
-            auto best = ai.FindBestMove(board, 'O');
+            auto best = aiForMove.FindBestMove(board, 'O');
             auto t2 = std::chrono::high_resolution_clock::now();
             auto dur = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
 
             std::cout << "AI: (" << best.x << "," << best.y << "), score=" << best.score
                       << ", time=" << dur << "us, "
-                      << (ai.useAlphaBeta ? "nodes=" + std::to_string(ai.lastStatsAlpha.nodes)
-                                          : "nodes=" + std::to_string(ai.lastStatsMinimax.nodes))
+                      << (aiForMove.useAlphaBeta ? "nodes=" + std::to_string(aiForMove.lastStatsAlpha.nodes)
+                                                 : "nodes=" + std::to_string(aiForMove.lastStatsMinimax.nodes))
                       << "\n";
 
             int x = best.x, y = best.y;
