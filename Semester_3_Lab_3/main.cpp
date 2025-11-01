@@ -2,13 +2,11 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
+#include <algorithm>
 #include "Timer.h"
 #include "Graphs.h"
 #include "ConnectedComponents.h"
 #include "GraphVizSFML.h"
-#include <vector>
-#include <string>
-
 
 // объявление из Tests_Graph.cpp
 extern "C" void RunGraphTests();
@@ -40,7 +38,7 @@ static AdjListGraph readGraphInteractiveOrAbort(bool& ok) {
         int u, v;
         if (!(std::cin >> u >> v)) return AdjListGraph(0); // EOF/ошибка ввода
         try {
-            g.AddEdge(u, v);  // бросит исключение для петли/дубликата/индексов вне диапазона
+            g.AddEdge(u, v);
             ++added;
         } catch (const std::out_of_range& e) {
             std::cout << "Invalid edge (" << u << "," << v << "): " << e.what() << ". Re-enter:\n";
@@ -136,7 +134,23 @@ int main(int argc, char** argv) {
         else if (c == 4) {
             bool ok = false;
             AdjListGraph g = readGraphInteractiveOrAbort(ok);
-            if (ok) VisualizeGraphSFML(g);   // без вопросов
+            if (!ok) continue;
+
+            std::cout << "Initial overlay (0/none/1/BFS/2/DFS): ";
+            std::string s; std::cin >> s;
+            std::string sl = s;
+            std::transform(sl.begin(), sl.end(), sl.begin(), [](unsigned char ch){ return std::tolower(ch); });
+
+            int overlay = 0;
+            if (sl == "1" || sl == "bfs") overlay = 1;
+            else if (sl == "2" || sl == "dfs") overlay = 2;
+            else overlay = 0;
+
+            std::cout << "Edge labels? (y/n): ";
+            char yn; std::cin >> yn;
+            bool showEdges = (yn == 'y' || yn == 'Y');
+
+            VisualizeGraphSFML(g, overlay, showEdges);
         }
         else {
             std::cout << "Invalid choice.\n";
