@@ -5,7 +5,10 @@
 #include "Timer.h"
 #include "Graphs.h"
 #include "ConnectedComponents.h"
-#include "GraphVizSFML.h"  // VisualizeGraphSFML(AdjListGraph&)
+#include "GraphVizSFML.h"
+#include <vector>
+#include <string>
+
 
 // объявление из Tests_Graph.cpp
 extern "C" void RunGraphTests();
@@ -133,7 +136,7 @@ int main(int argc, char** argv) {
         else if (c == 4) {
             bool ok = false;
             AdjListGraph g = readGraphInteractiveOrAbort(ok);
-            if (ok) VisualizeGraphSFML(g);
+            if (ok) VisualizeGraphSFML(g);   // без вопросов
         }
         else {
             std::cout << "Invalid choice.\n";
