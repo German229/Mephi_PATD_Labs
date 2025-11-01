@@ -84,3 +84,30 @@ if (ENABLE_GUI)
     endif ()
 endif ()
 
+
+# Лабораторная 3 семестр 3 — C++
+add_executable(lab_3_sem_3
+        Semester_3_Lab_3/main.cpp
+        Semester_3_Lab_3/ConnectedComponents.cpp
+        Semester_3_Lab_3/ConnectedComponents.h
+        Semester_3_Lab_3/dynamic_array.h
+        Semester_3_Lab_3/Graphs.h
+        Semester_3_Lab_3/IGraph.h
+        Semester_3_Lab_3/Lists.h
+        Semester_3_Lab_3/sequence.h
+        Semester_3_Lab_3/Tests_Graph.cpp
+        Semester_3_Lab_3/Timer.h
+        Semester_3_Lab_3/GraphVizSFML.cpp      # 🔧 добавили реализацию визуализации
+)
+
+# 🔧 Пролинкуем SFML и для lab_3_sem_3 (как для lab_2_sem_3)
+if (ENABLE_GUI)
+    # Если find_package(SFML 3 ...) был выше — таргеты SFML:: уже известны
+    target_compile_definitions(lab_3_sem_3 PRIVATE USE_SFML)
+    target_link_libraries(lab_3_sem_3
+            PRIVATE
+            SFML::Graphics
+            SFML::Window
+            SFML::System
+    )
+endif ()
