@@ -44,7 +44,7 @@ void Board::expandLeft() {
         delete[] buf;
     }
     width = newW;
-    offsetX += 1; // глобальный x=0 сдвинулся вправо на один индекс
+    offsetX += 1;
 }
 
 void Board::expandRight() {
@@ -68,7 +68,7 @@ void Board::expandUp() {
     grid = MutableArraySequence<MutableArraySequence<char>>(rows, newH);
     delete[] rows;
     height = newH;
-    offsetY += 1; // глобальный y=0 сдвинулся вниз на один индекс
+    offsetY += 1;
 }
 
 void Board::expandDown() {
@@ -81,14 +81,11 @@ void Board::expandDown() {
     height = newH;
 }
 
-// Гарантируем, что (x,y) будет внутри окна
 void Board::ensureContains(int x, int y) {
-    // Расширяем по горизонтали
     int col = x + offsetX;
     while (col < 0)  { expandLeft();  col = x + offsetX; }
     while (col >= width)  { expandRight(); col = x + offsetX; }
 
-    // Расширяем по вертикали
     int row = y + offsetY;
     while (row < 0)  { expandUp();    row = y + offsetY; }
     while (row >= height) { expandDown(); row = y + offsetY; }
@@ -120,8 +117,7 @@ void Board::PlaceMove(int x, int y, char symbol) {
     row.Set(c, symbol);
     grid.Set(r, row);
 
-    // обновляем границы занятой области
-    if (minX > maxX) { // первый ход
+    if (minX > maxX) {
         minX = maxX = x;
         minY = maxY = y;
     } else {
@@ -135,13 +131,11 @@ void Board::PlaceMove(int x, int y, char symbol) {
 int Board::countInDirection(int x, int y, int dx, int dy) const {
     char s = GetCell(x, y);
     if (s != 'X' && s != 'O') return 0;
-    int cnt = 1; // включаем (x,y)
+    int cnt = 1;
 
-    // вперёд
     int cx = x + dx, cy = y + dy;
     while (GetCell(cx, cy) == s) { cnt++; cx += dx; cy += dy; }
 
-    // назад
     cx = x - dx; cy = y - dy;
     while (GetCell(cx, cy) == s) { cnt++; cx -= dx; cy -= dy; }
 
@@ -149,20 +143,18 @@ int Board::countInDirection(int x, int y, int dx, int dy) const {
 }
 
 bool Board::CheckWin(int x, int y) const {
-    // Если клетка пустая — победы нет
     char s = GetCell(x, y);
     if (s != 'X' && s != 'O') return false;
 
-    // 4 направления: горизонталь, вертикаль, диагонали
     static const int dirs[4][2] = { {1,0}, {0,1}, {1,1}, {1,-1} };
     for (auto& d : dirs) {
-        if (countInDirection(x, y, d[0], d[1]) >= winK) return true; // <-- используем winK
+        if (countInDirection(x, y, d[0], d[1]) >= winK) return true;
     }
     return false;
 }
 
 void Board::Print() const {
-    if (minX > maxX) { // пока нет ходов
+    if (minX > maxX) {
         std::cout << "(пусто)\n";
         return;
     }
@@ -182,6 +174,6 @@ void Board::Print() const {
 
 void Board::SetWinK(int k) {
     if (k < 3) k = 3;
-    if (k > 10) k = 10; // можно расширить лимит при желании
+    if (k > 10) k = 10;
     winK = k;
 }

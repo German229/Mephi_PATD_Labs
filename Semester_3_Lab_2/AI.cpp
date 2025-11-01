@@ -16,7 +16,7 @@ bool AI::hasImmediateWin(Board board, int x, int y, char who) {
 // ===== Терминальная оценка =====
 int AI::evaluateTerminalAfterMove(const Board& b, int lastX, int lastY, char whoMoved, int depth) const {
     if (b.CheckWin(lastX, lastY)) {
-        int base = 100 - depth; // быстрее — лучше
+        int base = 100 - depth;
         return (whoMoved == 'X') ? base : -base;
     }
     return 0;
@@ -29,7 +29,7 @@ std::vector<std::pair<int,int>> AI::generateCandidates(const Board& board) const
     int minX = board.MinX(), maxX = board.MaxX();
     int minY = board.MinY(), maxY = board.MaxY();
 
-    if (minX > maxX) { // старт
+    if (minX > maxX) {
         cands.push_back({0,0});
         return cands;
     }
@@ -106,7 +106,7 @@ int AI::evaluateStatic(const Board& b) const {
 
             for (auto& d : dirs) {
                 int dx = d[0], dy = d[1];
-                if (b.GetCell(x-dx, y-dy) == s) continue; // не начало
+                if (b.GetCell(x-dx, y-dy) == s) continue;
 
                 int len = 0, cx = x, cy = y;
                 while (b.GetCell(cx, cy) == s) { ++len; cx += dx; cy += dy; }
@@ -173,7 +173,7 @@ int AI::minimax(Board state, int depth, bool isMax, int lastX, int lastY, AIStat
     orderCandidates(state, cands, isMax ? 'X' : 'O');
     if ((int)cands.size() > maxCandidates) cands.resize(maxCandidates);
 
-    if (isMax) { // X
+    if (isMax) {
         int best = negInf();
         for (auto& mv : cands) {
             if (!state.IsCellEmpty(mv.first, mv.second)) continue;
@@ -183,7 +183,7 @@ int AI::minimax(Board state, int depth, bool isMax, int lastX, int lastY, AIStat
             if (best >= 100 - (depth + 1)) break;
         }
         return best;
-    } else {     // O
+    } else {
         int best = posInf();
         for (auto& mv : cands) {
             if (!state.IsCellEmpty(mv.first, mv.second)) continue;
@@ -262,7 +262,7 @@ AIMove AI::FindBestMove(const Board& board, char ai) {
         }
     }
 
-    // Дальше — сортируем и ОТРЕЗАЕМ до maxCandidates
+    // Дальше сортируем и ОТРЕЗАЕМ до maxCandidates
     auto cands = full;
     orderCandidates(board, cands, ai);
     if ((int)cands.size() > maxCandidates) cands.resize(maxCandidates);
