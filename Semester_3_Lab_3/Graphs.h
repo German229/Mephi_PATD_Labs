@@ -8,7 +8,7 @@
 // --- Неориентированный граф на списках смежности ---
 class AdjListGraph : public IGraph {
     int n;
-    DynamicArray<LinkedList<int>> adj; // size n
+    DynamicArray<LinkedList<int>> adj;
 
     // проверка: есть ли уже ребро u--v
     bool hasNeighbor(int u, int v) const {

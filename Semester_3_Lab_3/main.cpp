@@ -3,15 +3,39 @@
 #include <fstream>
 #include <cstring>
 #include <algorithm>
+#include <vector>
+#include <string>
+#include <queue>
+#include <filesystem>
+
 #include "Timer.h"
 #include "Graphs.h"
 #include "ConnectedComponents.h"
 #include "GraphVizSFML.h"
 
-// объявление из Tests_Graph.cpp
+// из Tests_Graph.cpp
 extern "C" void RunGraphTests();
 
-// --- чтение графа с жёсткой валидацией; ok=false => ввод отменён/ошибка ---
+// --------- путь к каталогу исходников лабы (где лежит этот main.cpp) ---------
+static std::filesystem::path Lab3SourceDir() {
+    return std::filesystem::path(__FILE__).parent_path();
+}
+
+// ---------------------- CSV: только список рёбер ----------------------
+static void SaveEdgesCSV(const AdjListGraph& g, const std::filesystem::path& filepath) {
+    std::ofstream out(filepath);
+    out << "u,v\n";
+    const int n = g.VerticesCount();
+    for (int u = 0; u < n; ++u) {
+        LinkedList<int> L; g.GetNeighbors(u, L);
+        for (int i = 0; i < L.GetLength(); ++i) {
+            int v = L.Get(i);
+            if (v > u) out << u << "," << v << "\n"; // только u<v, без дублей
+        }
+    }
+}
+
+// ---------------------- ввод графа ----------------------
 static AdjListGraph readGraphInteractiveOrAbort(bool& ok) {
     ok = false;
     int n, m;
@@ -38,7 +62,7 @@ static AdjListGraph readGraphInteractiveOrAbort(bool& ok) {
         int u, v;
         if (!(std::cin >> u >> v)) return AdjListGraph(0); // EOF/ошибка ввода
         try {
-            g.AddEdge(u, v);
+            g.AddEdge(u, v);  // кидает исключение для петли/дубликата/индексов вне диапазона
             ++added;
         } catch (const std::out_of_range& e) {
             std::cout << "Invalid edge (" << u << "," << v << "): " << e.what() << ". Re-enter:\n";
@@ -50,7 +74,7 @@ static AdjListGraph readGraphInteractiveOrAbort(bool& ok) {
     return g;
 }
 
-// --- режим ручного запуска алгоритма (DFS/BFS) с выводом компонент и времени ---
+// ---------------------- режимы ----------------------
 static void runManual() {
     bool ok = false;
     AdjListGraph g = readGraphInteractiveOrAbort(ok);
@@ -82,21 +106,41 @@ static void runManual() {
         }
         std::cout << "Time (BFS): " << ms << " ms\n";
     } else {
+        // сравнение времени и сохранение только times в graphs_csv
         Timer t1; t1.start(); auto a = cc::ConnectedComponentsDFS(g); long long ms1 = t1.ms();
         Timer t2; t2.start(); auto b = cc::ConnectedComponentsBFS(g); long long ms2 = t2.ms();
-        std::cout << "DFS comps: " << a.size() << ", time: " << ms1 << " ms\n";
-        std::cout << "BFS comps: " << b.size() << ", time: " << ms2 << " ms\n";
 
-        std::ofstream out("lab3_times.csv");
+        std::filesystem::path outdir = Lab3SourceDir() / "graphs_csv";
+        std::error_code ec; std::filesystem::create_directories(outdir, ec);
+
+        std::ofstream out(outdir / "lab3_times.csv");
         out << "algo,time_ms\n";
         out << "DFS," << ms1 << "\n";
         out << "BFS," << ms2 << "\n";
-        std::cout << "Saved: lab3_times.csv\n";
+
+        std::cout << "DFS comps: " << a.size() << ", time: " << ms1 << " ms\n";
+        std::cout << "BFS comps: " << b.size() << ", time: " << ms2 << " ms\n";
+        std::cout << "Saved: " << std::filesystem::absolute(outdir / "lab3_times.csv") << "\n";
     }
 }
 
+static void runExportEdgesOnly() {
+    bool ok = false;
+    AdjListGraph g = readGraphInteractiveOrAbort(ok);
+    if (!ok) return;
+
+    // каталог graphs_csv рядом с исходниками лабы
+    std::filesystem::path outdir = Lab3SourceDir() / "graphs_csv";
+    std::error_code ec;
+    std::filesystem::create_directories(outdir, ec);
+
+    auto path = outdir / "lab3_graph.csv";
+    SaveEdgesCSV(g, path);
+
+    std::cout << "Saved edges CSV: " << std::filesystem::absolute(path) << "\n";
+}
+
 int main(int argc, char** argv) {
-    // быстрый запуск тестов: ./lab3 --test
     if (argc > 1 && (std::strcmp(argv[1], "--test") == 0)) {
         RunGraphTests();
         return 0;
@@ -107,8 +151,9 @@ int main(int argc, char** argv) {
         std::cout << "\nMenu:\n"
                   << "1) Manual graph input & components\n"
                   << "2) Run tests\n"
-                  << "3) Compare & save CSV\n"
+                  << "3) Compare\n"
                   << "4) Visualize (SFML)\n"
+                  << "5) Export graph (edges CSV -> Semester_3_Lab_3/graphs_csv)\n"
                   << "0) Exit\n"
                   << "Choice: ";
         int c; if (!(std::cin >> c)) return 0;
@@ -117,19 +162,7 @@ int main(int argc, char** argv) {
         else if (c == 1) runManual();
         else if (c == 2) RunGraphTests();
         else if (c == 3) {
-            bool ok = false;
-            AdjListGraph g = readGraphInteractiveOrAbort(ok);
-            if (!ok) continue;
-            Timer t1; t1.start(); auto a = cc::ConnectedComponentsDFS(g); long long ms1 = t1.ms();
-            Timer t2; t2.start(); auto b = cc::ConnectedComponentsBFS(g); long long ms2 = t2.ms();
-            std::cout << "DFS comps: " << a.size() << ", time: " << ms1 << " ms\n";
-            std::cout << "BFS comps: " << b.size() << ", time: " << ms2 << " ms\n";
-
-            std::ofstream out("lab3_times.csv");
-            out << "algo,time_ms\n";
-            out << "DFS," << ms1 << "\n";
-            out << "BFS," << ms2 << "\n";
-            std::cout << "Saved: lab3_times.csv\n";
+            runManual(); // внутри 3-й ветки сохранит только lab3_times.csv при выборе "3"
         }
         else if (c == 4) {
             bool ok = false;
@@ -138,19 +171,17 @@ int main(int argc, char** argv) {
 
             std::cout << "Initial overlay (0/none/1/BFS/2/DFS): ";
             std::string s; std::cin >> s;
-            std::string sl = s;
-            std::transform(sl.begin(), sl.end(), sl.begin(), [](unsigned char ch){ return std::tolower(ch); });
-
-            int overlay = 0;
-            if (sl == "1" || sl == "bfs") overlay = 1;
-            else if (sl == "2" || sl == "dfs") overlay = 2;
-            else overlay = 0;
+            for (auto& ch : s) ch = (char)std::tolower((unsigned char)ch);
+            int overlay = (s == "1" || s == "bfs") ? 1 : (s == "2" || s == "dfs") ? 2 : 0;
 
             std::cout << "Edge labels? (y/n): ";
             char yn; std::cin >> yn;
             bool showEdges = (yn == 'y' || yn == 'Y');
 
             VisualizeGraphSFML(g, overlay, showEdges);
+        }
+        else if (c == 5) {
+            runExportEdgesOnly(); // только один CSV с рёбрами
         }
         else {
             std::cout << "Invalid choice.\n";

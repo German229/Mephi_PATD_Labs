@@ -43,6 +43,18 @@ add_executable(hw1
         Semester_3_HW_1/tests.hpp
 )
 
+# Домашка 1 семестр 3 — C++
+add_executable(lab_1_sem_3
+        Semester_3_Lab_1/LazySequence.h
+        Semester_3_Lab_1/dynamic_array.h
+        semester_3_Lab_1/Lists.h
+        Semester_3_Lab_1/sequence.h
+        Semester_3_Lab_1/main.cpp
+        Semester_3_Lab_1/OnlineStatistics.h
+        Semester_3_Lab_1/Streams.h
+        Semester_3_Lab_1/TestsStatistics.h
+)
+
 # Лабораторная 2 семестр 3 — C++
 add_executable(lab_2_sem_3
         Semester_3_Lab_2/main.cpp
