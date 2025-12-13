@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Runner for ProbabilityScript project (Semester_3_Lab_Dop).
+#
+# Usage:
+#   ./Semester_3_Lab_Dop/psc
+#   ./Semester_3_Lab_Dop/psc scripts/script1.psc
+#   ./Semester_3_Lab_Dop/psc --seed 42 scripts/demo_basic.psc
+#   ./Semester_3_Lab_Dop/psc --seed=42 scripts/demo_basic.psc
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+BUILD_DIR="$REPO_ROOT/cmake-build-debug"
+BIN="$BUILD_DIR/lab_dop_sem_3"
+
+# -------------------- find cmake --------------------
+CMAKE_BIN="${CMAKE_BIN:-cmake}"
+
+if ! command -v "$CMAKE_BIN" >/dev/null 2>&1; then
+  CLION_CMAKE="/Applications/CLion.app/Contents/bin/cmake/mac/aarch64/bin/cmake"
+  if [ -x "$CLION_CMAKE" ]; then
+    CMAKE_BIN="$CLION_CMAKE"
+  else
+    echo "Error: cmake not found in PATH and CLion bundled cmake not found."
+    echo "Tried:"
+    echo "  - cmake (PATH)"
+    echo "  - $CLION_CMAKE"
+    echo
+    echo "Fix options:"
+    echo "  1) Install cmake: brew install cmake"
+    echo "  2) Or set env var: CMAKE_BIN=/full/path/to/cmake"
+    exit 1
+  fi
+fi
+
+cd "$REPO_ROOT"
+
+# -------------------- configure (if needed) --------------------
+if [ ! -d "$BUILD_DIR" ]; then
+  "$CMAKE_BIN" -S "$REPO_ROOT" -B "$BUILD_DIR"
+fi
+
+# -------------------- build target --------------------
+"$CMAKE_BIN" --build "$BUILD_DIR" --target lab_dop_sem_3
+
+# -------------------- normalize .psc path --------------------
+# We normalize the first argument that looks like a script path (*.psc).
+# Important: we skip values of options like --seed N.
+ARGS=("$@")
+
+script_idx=-1
+skip_next=0
+
+for ((i=0; i<${#ARGS[@]}; i++)); do
+  a="${ARGS[$i]}"
+
+  if [ "$skip_next" -eq 1 ]; then
+    skip_next=0
+    continue
+  fi
+
+  if [ "$a" = "--seed" ]; then
+    skip_next=1
+    continue
+  fi
+
+  if [[ "$a" == --seed=* ]]; then
+    continue
+  fi
+
+  if [ "$script_idx" -eq -1 ] && [[ "$a" == *.psc ]]; then
+    script_idx=$i
+    break
+  fi
+done
+
+if [ "$script_idx" -ge 0 ]; then
+  sp="${ARGS[$script_idx]}"
+  if [[ "$sp" != /* ]]; then
+    # Prefer relative to Semester_3_Lab_Dop (where scripts/ usually lives)
+    if [ -f "$SCRIPT_DIR/$sp" ]; then
+      ARGS[$script_idx]="$SCRIPT_DIR/$sp"
+    else
+      ARGS[$script_idx]="$REPO_ROOT/$sp"
+    fi
+  fi
+fi
+
+"$BIN" "${ARGS[@]}"

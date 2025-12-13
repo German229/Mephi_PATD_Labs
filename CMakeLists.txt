@@ -109,10 +109,9 @@ add_executable(lab_3_sem_3
         Semester_3_Lab_3/sequence.h
         Semester_3_Lab_3/Tests_Graph.cpp
         Semester_3_Lab_3/Timer.h
-        Semester_3_Lab_3/GraphVizSFML.cpp      # 🔧 добавили реализацию визуализации
+        Semester_3_Lab_3/GraphVizSFML.cpp
 )
 
-# 🔧 Пролинкуем SFML и для lab_3_sem_3 (как для lab_2_sem_3)
 if (ENABLE_GUI)
     # Если find_package(SFML 3 ...) был выше — таргеты SFML:: уже известны
     target_compile_definitions(lab_3_sem_3 PRIVATE USE_SFML)
@@ -123,3 +122,27 @@ if (ENABLE_GUI)
             SFML::System
     )
 endif ()
+
+
+# лаба на автомат семестр 3 — C++
+add_executable(lab_dop_sem_3
+        Semester_3_Lab_Dop/lexer.cpp
+        Semester_3_Lab_Dop/lexer.h
+        Semester_3_Lab_Dop/main.cpp
+        Semester_3_Lab_Dop/token.h
+        Semester_3_Lab_Dop/value.h
+        Semester_3_Lab_Dop/parser.cpp
+        Semester_3_Lab_Dop/parser.h
+        Semester_3_Lab_Dop/ast.h
+        Semester_3_Lab_Dop/environment.h
+        Semester_3_Lab_Dop/environment.cpp
+        Semester_3_Lab_Dop/sequence.h
+        Semester_3_Lab_Dop/dynamic_array.h
+        Semester_3_Lab_Dop/Lists.h
+        Semester_3_Lab_Dop/statlib.cpp
+        Semester_3_Lab_Dop/statlib.h
+        Semester_3_Lab_Dop/interpreter.cpp
+        Semester_3_Lab_Dop/interpreter.h
+        Semester_3_Lab_Dop/tests.cpp
+        Semester_3_Lab_Dop/tests.h
+)

@@ -39,3 +39,14 @@ __pycache__/
 .venv/
 cmake-build-debug/
 .idea/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.synctex.gz
+*.toc
+*.out
+*.fls
+*.fdb_latexmk
+*.nav
+*.snm
