@@ -1,12 +1,12 @@
 #include "parser.h"
-
+#include <iostream>
 #include <cstdlib>
-#include <vector>
 
 Parser::Parser(Lexer& lex)
     : lexer(lex),
       current(TokenType::EndOfFile, "", 1, 1)
 {
+    // std::cerr << "PARSER_BUILD_MARK=ADD_EQ_CMP\n";
     Advance();
 }
 
@@ -20,6 +20,10 @@ bool Parser::Match(TokenType t) {
         return true;
     }
     return false;
+}
+
+bool Parser::Check(TokenType t) const {
+    return current.type == t;
 }
 
 void Parser::Expect(TokenType t, const std::string& msg) {
@@ -39,7 +43,7 @@ void Parser::Expect(TokenType t, const std::string& msg) {
 
 Program Parser::ParseProgram() {
     Program prog;
-    while (current.type != TokenType::EndOfFile) {
+    while (!Check(TokenType::EndOfFile)) {
         prog.AddStatement(ParseStatement());
     }
     return prog;
@@ -64,16 +68,22 @@ std::unique_ptr<Stmt> Parser::ParseStatement() {
 
     if (Match(TokenType::KeywordPrintStat)) {
         Expect(TokenType::LParen, "Expected '(' after print_stat");
-        if (current.type != TokenType::StringLiteral) {
+        if (!Check(TokenType::StringLiteral)) {
             Error("Expected string literal inside print_stat(\"...\")");
         }
-        std::string statName = current.text;
+        std::string name = current.text;
         Advance();
         Expect(TokenType::RParen, "Expected ')' after print_stat(\"...\")");
-        return std::make_unique<PrintStatStmt>(statName);
+        return std::make_unique<PrintStatStmt>(name);
     }
 
-    if (current.type == TokenType::Identifier) {
+    if (Match(TokenType::If)) {
+        auto cond = ParseExpression();
+        auto body = ParseBlock();
+        return std::make_unique<IfStmt>(std::move(cond), std::move(body));
+    }
+
+    if (Check(TokenType::Identifier)) {
         std::string name = current.text;
         Advance();
         Expect(TokenType::Assign, "Expected '=' after identifier in assignment");
@@ -81,9 +91,8 @@ std::unique_ptr<Stmt> Parser::ParseStatement() {
         return std::make_unique<AssignStmt>(name, std::move(expr));
     }
 
-    if (current.type == TokenType::LBrace) {
-        auto b = ParseBlock();
-        return b;
+    if (Check(TokenType::LBrace)) {
+        return ParseBlock();
     }
 
     Error("Expected statement");
@@ -93,8 +102,8 @@ std::unique_ptr<BlockStmt> Parser::ParseBlock() {
     Expect(TokenType::LBrace, "Expected '{' to start block");
     auto block = std::make_unique<BlockStmt>();
 
-    while (current.type != TokenType::RBrace) {
-        if (current.type == TokenType::EndOfFile) {
+    while (!Check(TokenType::RBrace)) {
+        if (Check(TokenType::EndOfFile)) {
             Error("Unterminated block: expected '}'");
         }
         block->AddStatement(ParseStatement());
@@ -104,36 +113,89 @@ std::unique_ptr<BlockStmt> Parser::ParseBlock() {
     return block;
 }
 
+// ===== Expressions with precedence =====
+
 std::unique_ptr<Expr> Parser::ParseExpression() {
-    auto left = ParseTerm();
+    return ParseEquality();
+}
 
-    while (current.type == TokenType::Plus || current.type == TokenType::Minus) {
-        TokenType opTok = current.type;
-        Advance();
+std::unique_ptr<Expr> Parser::ParseEquality() {
+    auto left = ParseComparison();
 
-        auto right = ParseTerm();
-        if (opTok == TokenType::Plus) {
-            left = std::make_unique<BinaryExpr>(BinaryOp::Add, std::move(left), std::move(right));
+    while (true) {
+        if (Match(TokenType::EqualEqual)) {
+            auto right = ParseComparison();
+            left = std::make_unique<BinaryExpr>(BinaryOp::Equal, std::move(left), std::move(right));
+        } else if (Match(TokenType::BangEqual)) {
+            auto right = ParseComparison();
+            left = std::make_unique<BinaryExpr>(BinaryOp::NotEqual, std::move(left), std::move(right));
         } else {
-            left = std::make_unique<BinaryExpr>(BinaryOp::Subtract, std::move(left), std::move(right));
+            break;
         }
     }
 
     return left;
 }
 
-std::unique_ptr<Expr> Parser::ParseTerm() {
+std::unique_ptr<Expr> Parser::ParseComparison() {
+    auto left = ParseAdditive();
+
+    while (true) {
+        if (Match(TokenType::Greater)) {
+            auto right = ParseAdditive();
+            left = std::make_unique<BinaryExpr>(BinaryOp::Greater, std::move(left), std::move(right));
+
+        } else if (Match(TokenType::Less)) {
+            auto right = ParseAdditive();
+            left = std::make_unique<BinaryExpr>(BinaryOp::Less, std::move(left), std::move(right));
+
+        } else if (Match(TokenType::GreaterEqual)) {
+            auto right = ParseAdditive();
+            left = std::make_unique<BinaryExpr>(BinaryOp::GreaterEqual, std::move(left), std::move(right));
+
+        } else if (Match(TokenType::LessEqual)) {
+            auto right = ParseAdditive();
+            left = std::make_unique<BinaryExpr>(BinaryOp::LessEqual, std::move(left), std::move(right));
+
+        } else {
+            break;
+        }
+    }
+
+    return left;
+}
+
+
+std::unique_ptr<Expr> Parser::ParseAdditive() {
+    auto left = ParseMultiplicative();
+
+    while (true) {
+        if (Match(TokenType::Plus)) {
+            auto right = ParseMultiplicative();
+            left = std::make_unique<BinaryExpr>(BinaryOp::Add, std::move(left), std::move(right));
+        } else if (Match(TokenType::Minus)) {
+            auto right = ParseMultiplicative();
+            left = std::make_unique<BinaryExpr>(BinaryOp::Subtract, std::move(left), std::move(right));
+        } else {
+            break;
+        }
+    }
+
+    return left;
+}
+
+std::unique_ptr<Expr> Parser::ParseMultiplicative() {
     auto left = ParseUnary();
 
-    while (current.type == TokenType::Star || current.type == TokenType::Slash) {
-        TokenType opTok = current.type;
-        Advance();
-
-        auto right = ParseUnary();
-        if (opTok == TokenType::Star) {
+    while (true) {
+        if (Match(TokenType::Star)) {
+            auto right = ParseUnary();
             left = std::make_unique<BinaryExpr>(BinaryOp::Multiply, std::move(left), std::move(right));
-        } else {
+        } else if (Match(TokenType::Slash)) {
+            auto right = ParseUnary();
             left = std::make_unique<BinaryExpr>(BinaryOp::Divide, std::move(left), std::move(right));
+        } else {
+            break;
         }
     }
 
@@ -148,11 +210,10 @@ std::unique_ptr<Expr> Parser::ParseUnary() {
     return ParsePrimary();
 }
 
-// разбор аргументов: ( [expr (',' expr)*] )
 void Parser::ParseCallArguments(CallExpr& call) {
     Expect(TokenType::LParen, "Expected '(' after function name");
 
-    if (current.type == TokenType::RParen) {
+    if (Check(TokenType::RParen)) {
         Advance();
         return;
     }
@@ -167,18 +228,17 @@ void Parser::ParseCallArguments(CallExpr& call) {
 }
 
 std::unique_ptr<Expr> Parser::ParsePrimary() {
-    if (current.type == TokenType::Number) {
+    if (Check(TokenType::Number)) {
         double v = std::strtod(current.text.c_str(), nullptr);
         Advance();
         return std::make_unique<NumberExpr>(v);
     }
 
-    if (current.type == TokenType::Identifier) {
+    if (Check(TokenType::Identifier)) {
         std::string name = current.text;
         Advance();
 
-        if (current.type == TokenType::LParen) {
-            // ВАЖНО: у тебя CallExpr требует (name, arguments)
+        if (Check(TokenType::LParen)) {
             auto call = std::make_unique<CallExpr>(name, std::vector<std::unique_ptr<Expr>>{});
             ParseCallArguments(*call);
             return call;

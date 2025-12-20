@@ -58,7 +58,7 @@ void AssertToken(const Token& tok, TokenType expectedType, const std::string& ex
 // ========================= Тесты для Lexer =========================
 
 void TestLexerSimpleExpression() {
-    std::string src = "x = 1 + 2\n";
+    std::string src = "x = 1 + 2";
     Lexer lexer(src);
 
     Token t1 = lexer.NextToken();
@@ -595,6 +595,70 @@ void TestInterpreterNormalTwoArgsFinite() {
     assert(std::isfinite(x));
 }
 
+void TestInterpreterIfStatement() {
+    std::string src =
+        "x = 1\n"
+        "if x {\n"
+        "  print 42\n"
+        "}\n"
+        "\n"
+        "y = 0\n"
+        "if y {\n"
+        "  print 99\n"
+        "}\n";
+
+    Lexer lexer(src);
+    Parser parser(lexer);
+    Program prog = parser.ParseProgram();
+
+    Interpreter interp;
+    interp.ExecuteProgram(prog);
+}
+
+
+void TestLexerLessGreaterEqual() {
+    std::string src = "a = 1 <= 2\nb = 3 >= 4\n";
+    Lexer lexer(src);
+
+    Token t1 = lexer.NextToken(); AssertToken(t1, TokenType::Identifier, "a");
+    Token t2 = lexer.NextToken(); AssertToken(t2, TokenType::Assign, "=");
+    Token t3 = lexer.NextToken(); AssertToken(t3, TokenType::Number, "1");
+    Token t4 = lexer.NextToken(); AssertToken(t4, TokenType::LessEqual, "<=");
+    Token t5 = lexer.NextToken(); AssertToken(t5, TokenType::Number, "2");
+
+    Token t6 = lexer.NextToken(); AssertToken(t6, TokenType::Identifier, "b");
+    Token t7 = lexer.NextToken(); AssertToken(t7, TokenType::Assign, "=");
+    Token t8 = lexer.NextToken(); AssertToken(t8, TokenType::Number, "3");
+    Token t9 = lexer.NextToken(); AssertToken(t9, TokenType::GreaterEqual, ">=");
+    Token t10 = lexer.NextToken(); AssertToken(t10, TokenType::Number, "4");
+
+    Token t11 = lexer.NextToken();
+    assert(t11.type == TokenType::EndOfFile);
+}
+
+
+void TestInterpreterLessGreaterEqual() {
+    std::string src =
+        "x = 2\n"
+        "a = x <= 2\n"
+        "b = x >= 3\n"
+        "c = x <= 1\n"
+        "d = x >= 2\n";
+
+    Lexer lexer(src);
+    Parser parser(lexer);
+    Program prog = parser.ParseProgram();
+
+    Interpreter interp(/*seed=*/123);
+    interp.ExecuteProgram(prog);
+
+    const Environment& env = interp.GetEnvironment();
+    assert(std::fabs(env.GetVariable("a").AsNumber() - 1.0) < 1e-9); // 2 <= 2 true
+    assert(std::fabs(env.GetVariable("b").AsNumber() - 0.0) < 1e-9); // 2 >= 3 false
+    assert(std::fabs(env.GetVariable("c").AsNumber() - 0.0) < 1e-9); // 2 <= 1 false
+    assert(std::fabs(env.GetVariable("d").AsNumber() - 1.0) < 1e-9); // 2 >= 2 true
+}
+
 // ========================= RunAllTests =========================
 
 void RunAllTests() {
@@ -632,6 +696,10 @@ void RunAllTests() {
     TestParserCallTwoArgs();
     TestInterpreterUniformTwoArgsRange();
     TestInterpreterNormalTwoArgsFinite();
+    TestInterpreterIfStatement();
+
+    TestLexerLessGreaterEqual();
+    TestInterpreterLessGreaterEqual();
 
     std::cout << "All tests for front-end, environment, statistics, and interpreter passed successfully.\n";
 }

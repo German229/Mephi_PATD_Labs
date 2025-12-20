@@ -44,6 +44,16 @@ void Interpreter::ExecuteStatement(Stmt* stmt) {
         return;
     }
 
+    if (auto* ifStmt = dynamic_cast<const IfStmt*>(stmt)) {
+        Value condVal = EvaluateExpression(ifStmt->condition.get());
+        if (condVal.AsNumber() != 0.0) {
+            for (const auto& subStmt : ifStmt->body->statements) {
+                ExecuteStatement(subStmt.get());
+            }
+        }
+        return;
+    }
+
     if (auto* repeatStmt = dynamic_cast<RepeatStmt*>(stmt)) {
         Value countVal = EvaluateExpression(repeatStmt->countExpr.get());
         double d = countVal.AsNumber();
@@ -103,6 +113,18 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
             case BinaryOp::Subtract: return left - right;
             case BinaryOp::Multiply: return left * right;
             case BinaryOp::Divide:   return left / right;
+            case BinaryOp::Greater:
+                return Value::FromNumber(left.AsNumber() > right.AsNumber() ? 1.0 : 0.0);
+            case BinaryOp::Less:
+                return Value::FromNumber(left.AsNumber() < right.AsNumber() ? 1.0 : 0.0);
+            case BinaryOp::Equal:
+                return Value::FromNumber(left.AsNumber() == right.AsNumber() ? 1.0 : 0.0);
+            case BinaryOp::NotEqual:
+                return Value::FromNumber(left.AsNumber() != right.AsNumber() ? 1.0 : 0.0);
+            case BinaryOp::GreaterEqual:
+                return Value::FromNumber(left.AsNumber() >= right.AsNumber() ? 1.0 : 0.0);
+            case BinaryOp::LessEqual:
+                return Value::FromNumber(left.AsNumber() <= right.AsNumber() ? 1.0 : 0.0);
         }
         throw std::runtime_error("Unknown binary operator");
     }
@@ -111,17 +133,14 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
         const std::string& name = call->callee;
         const auto& args = call->args;
 
-        // ---------------- Distributions ----------------
+        // --- Distributions ---
 
-        // uniform(): U(0,1)
-        // uniform(b): U(0,b)
-        // uniform(a,b): U(a,b)
         if (name == "uniform") {
             double a = 0.0;
             double b = 1.0;
 
             if (args.size() == 0) {
-                // ok
+                // default U(0,1)
             } else if (args.size() == 1) {
                 b = EvaluateExpression(args[0].get()).AsNumber();
             } else if (args.size() == 2) {
@@ -139,15 +158,12 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
             return Value::FromNumber(dist(rng));
         }
 
-        // normal(): N(0,1)
-        // normal(mu): N(mu,1)
-        // normal(mu,sigma): N(mu,sigma)
         if (name == "normal") {
             double mu = 0.0;
             double sigma = 1.0;
 
             if (args.size() == 0) {
-                // ok
+                // N(0,1)
             } else if (args.size() == 1) {
                 mu = EvaluateExpression(args[0].get()).AsNumber();
             } else if (args.size() == 2) {
@@ -165,13 +181,15 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
             return Value::FromNumber(dist(rng));
         }
 
-        // ---------------- Statistics as expressions ----------------
+        // --- Statistics ---
+
         if (name == "mean" || name == "variance" ||
             name == "stddev" || name == "median" || name == "count") {
 
             if (!args.empty()) {
                 throw std::runtime_error(name + "() does not accept arguments");
             }
+
             double res = GetSampleStat(name);
             return Value::FromNumber(res);
         }
@@ -209,14 +227,12 @@ double Interpreter::GetSampleStat(const std::string& statName) {
     throw std::runtime_error("Unknown statistic: " + statName);
 }
 
-// ВАЖНО: здесь меняем формат вывода на читаемый
 void Interpreter::ExecutePrintStat(const std::string& what) {
     double value = GetSampleStat(what);
 
     if (!out) return;
 
     if (what == "count") {
-        // печатаем как целое
         (*out) << "count = " << static_cast<std::size_t>(value) << "\n";
         return;
     }

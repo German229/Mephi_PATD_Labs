@@ -3,12 +3,11 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "lexer.h"
 #include "ast.h"
 
-// Парсер ProbabilityScript.
-// Делает: Lexer -> AST (Program).
 class Parser {
 public:
     explicit Parser(Lexer& lex);
@@ -17,10 +16,11 @@ public:
 
 private:
     Lexer& lexer;
-    Token current; // lookahead
+    Token current;
 
     void Advance();
     bool Match(TokenType t);
+    bool Check(TokenType t) const;
     void Expect(TokenType t, const std::string& msg);
 
     [[noreturn]] void Error(const std::string& msg);
@@ -29,12 +29,14 @@ private:
     std::unique_ptr<Stmt> ParseStatement();
     std::unique_ptr<BlockStmt> ParseBlock();
 
-    // Expressions (с приоритетами)
-    std::unique_ptr<Expr> ParseExpression(); // +,-
-    std::unique_ptr<Expr> ParseTerm();       // *,/
-    std::unique_ptr<Expr> ParseUnary();
-    std::unique_ptr<Expr> ParsePrimary();
+    // Expressions (precedence levels)
+    std::unique_ptr<Expr> ParseExpression();        // entry
+    std::unique_ptr<Expr> ParseEquality();          // == !=
+    std::unique_ptr<Expr> ParseComparison();        // < > <= >=
+    std::unique_ptr<Expr> ParseAdditive();          // + -
+    std::unique_ptr<Expr> ParseMultiplicative();    // * /
+    std::unique_ptr<Expr> ParseUnary();             // unary -
+    std::unique_ptr<Expr> ParsePrimary();           // numbers, identifiers, calls, (...)
 
-    // NEW: аргументы вызова функции
     void ParseCallArguments(CallExpr& call);
 };

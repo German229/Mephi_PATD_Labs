@@ -13,6 +13,7 @@ public:
     Token NextToken();
 
 private:
+    char PeekNext() const;
     std::string source;
     std::size_t pos;
 

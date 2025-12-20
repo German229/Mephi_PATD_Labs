@@ -32,16 +32,14 @@ static void PrintUsage(const char* progName) {
         << "  " << progName << " --test             Run unit tests\n"
         << "  " << progName << " --help             Show help\n\n"
         << "Examples:\n"
-        << "  " << progName << " Semester_3_Lab_Dop/scripts/script1.psc\n"
-        << "  " << progName << " --seed 42 Semester_3_Lab_Dop/scripts/script1.psc\n";
+        << "  " << progName << " scripts/script1.psc\n"
+        << "  " << progName << " --seed 42 scripts/script2.psc\n";
 }
 
 int main(int argc, char** argv) {
     try {
-        // Default behavior: if no args -> run tests (as before)
-        unsigned int seed = 123;         // default seed for reproducibility when needed
+        unsigned int seed = 123;
         bool seedProvided = false;
-
         bool forceTests = false;
         std::string scriptPath;
 
@@ -60,51 +58,41 @@ int main(int argc, char** argv) {
 
             if (arg == "--seed") {
                 if (i + 1 >= argc) {
-                    throw std::runtime_error("Expected integer after --seed");
+                    throw std::runtime_error("Expected number after --seed");
                 }
-                std::string val = argv[++i];
-                unsigned long long x = std::stoull(val);
-                seed = static_cast<unsigned int>(x);
+                seed = static_cast<unsigned int>(std::stoul(argv[++i]));
                 seedProvided = true;
                 continue;
             }
 
             if (arg.rfind("--seed=", 0) == 0) {
-                std::string val = arg.substr(std::string("--seed=").size());
-                unsigned long long x = std::stoull(val);
-                seed = static_cast<unsigned int>(x);
+                seed = static_cast<unsigned int>(std::stoul(arg.substr(7)));
                 seedProvided = true;
                 continue;
             }
 
-            if (!arg.empty() && arg[0] == '-') {
-                throw std::runtime_error("Unknown option: " + arg);
-            }
-
-            // positional argument: script path
+            // Only one positional argument allowed — script path
             if (scriptPath.empty()) {
                 scriptPath = arg;
             } else {
-                throw std::runtime_error("Too many positional arguments (only one .psc path expected)");
+                throw std::runtime_error("Unexpected extra argument: " + arg);
             }
         }
 
-        // If explicitly requested tests, or no script passed -> run tests.
+        // Run tests if requested explicitly or no script provided
         if (forceTests || scriptPath.empty()) {
             RunAllTests();
             return 0;
         }
 
-        // Run script
-        const std::string source = ReadWholeFile(scriptPath);
-
+        // Run script file
+        std::string source = ReadWholeFile(scriptPath);
         Lexer lexer(source);
         Parser parser(lexer);
         Program program = parser.ParseProgram();
 
-        Interpreter interp(seedProvided ? seed : 123);
+        Interpreter interp(seed);
         interp.ExecuteProgram(program);
-
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";

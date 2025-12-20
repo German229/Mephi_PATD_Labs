@@ -11,6 +11,11 @@ char Lexer::Peek() const {
     return source[pos];
 }
 
+char Lexer::PeekNext() const {
+    if (pos + 1 >= source.size()) return '\0';
+    return source[pos + 1];
+}
+
 char Lexer::Get() {
     if (pos >= source.size()) return '\0';
     char c = source[pos++];
@@ -35,8 +40,7 @@ void Lexer::SkipWhitespace() {
 }
 
 void Lexer::SkipCommentIfAny() {
-    // // ... до конца строки
-    if (Peek() == '/' && pos + 1 < source.size() && source[pos + 1] == '/') {
+    if (Peek() == '/' && PeekNext() == '/') {
         while (Peek() != '\0' && Peek() != '\n') {
             Get();
         }
@@ -59,17 +63,37 @@ Token Lexer::LexNumber(int startLine, int startCol) {
         char c = Peek();
         if (std::isdigit(static_cast<unsigned char>(c))) {
             buf.push_back(Get());
-            continue;
-        }
-        if (c == '.' && !seenDot) {
+        } else if (c == '.' && !seenDot) {
             seenDot = true;
             buf.push_back(Get());
-            continue;
+        } else {
+            break;
         }
-        break;
     }
 
     return Token(TokenType::Number, buf, startLine, startCol);
+}
+
+Token Lexer::LexStringLiteral(int startLine, int startCol) {
+    Get(); // skip opening quote
+    std::string buf;
+
+    while (true) {
+        char c = Peek();
+        if (c == '\0') {
+            throw std::runtime_error("Unterminated string literal at line " + std::to_string(startLine));
+        }
+        if (c == '"') {
+            Get(); // closing quote
+            break;
+        }
+        if (c == '\n') {
+            throw std::runtime_error("String literal cannot contain newline at line " + std::to_string(startLine));
+        }
+        buf.push_back(Get());
+    }
+
+    return Token(TokenType::StringLiteral, buf, startLine, startCol);
 }
 
 Token Lexer::LexIdentifierOrKeyword(int startLine, int startCol) {
@@ -84,40 +108,15 @@ Token Lexer::LexIdentifierOrKeyword(int startLine, int startCol) {
     if (buf == "collect")    return Token(TokenType::KeywordCollect, buf, startLine, startCol);
     if (buf == "print")      return Token(TokenType::KeywordPrint, buf, startLine, startCol);
     if (buf == "print_stat") return Token(TokenType::KeywordPrintStat, buf, startLine, startCol);
+    if (buf == "if")         return Token(TokenType::If, buf, startLine, startCol);
 
     return Token(TokenType::Identifier, buf, startLine, startCol);
-}
-
-Token Lexer::LexStringLiteral(int startLine, int startCol) {
-    // Ожидаем, что текущий символ — "
-    Get(); // пропускаем "
-
-    std::string buf;
-    while (true) {
-        char c = Peek();
-        if (c == '\0') {
-            throw std::runtime_error("Unterminated string literal at line " + std::to_string(startLine));
-        }
-        if (c == '"') {
-            Get(); // закрывающая "
-            break;
-        }
-        // минимальная поддержка escape не нужна, но запретим перевод строки в строковом литерале
-        if (c == '\n') {
-            throw std::runtime_error("String literal cannot contain newline at line " + std::to_string(startLine));
-        }
-        buf.push_back(Get());
-    }
-
-    // text без кавычек
-    return Token(TokenType::StringLiteral, buf, startLine, startCol);
 }
 
 Token Lexer::NextToken() {
     while (true) {
         SkipWhitespace();
         SkipCommentIfAny();
-        // после комментария может быть перевод строки/пробелы
         SkipWhitespace();
 
         char c = Peek();
@@ -128,35 +127,82 @@ Token Lexer::NextToken() {
         int startLine = line;
         int startCol = column;
 
-        // Number
         if (std::isdigit(static_cast<unsigned char>(c))) {
             return LexNumber(startLine, startCol);
         }
 
-        // Identifier / keyword
         if (IsIdentStart(c)) {
             return LexIdentifierOrKeyword(startLine, startCol);
         }
 
-        // String literal
         if (c == '"') {
             return LexStringLiteral(startLine, startCol);
         }
 
-        // One-char tokens
         switch (c) {
-            case '=': Get(); return Token(TokenType::Assign, "=", startLine, startCol);
-            case '+': Get(); return Token(TokenType::Plus, "+", startLine, startCol);
-            case '-': Get(); return Token(TokenType::Minus, "-", startLine, startCol);
-            case '*': Get(); return Token(TokenType::Star, "*", startLine, startCol);
-            case '/': Get(); return Token(TokenType::Slash, "/", startLine, startCol);
-            case '(': Get(); return Token(TokenType::LParen, "(", startLine, startCol);
-            case ')': Get(); return Token(TokenType::RParen, ")", startLine, startCol);
-            case '{': Get(); return Token(TokenType::LBrace, "{", startLine, startCol);
-            case '}': Get(); return Token(TokenType::RBrace, "}", startLine, startCol);
-            case ',': Get(); return Token(TokenType::Comma, ",", startLine, startCol); // <-- NEW
-            default:
-                break;
+            case '=':
+                Get();
+                if (Peek() == '=') {
+                    Get();
+                    return Token(TokenType::EqualEqual, "==", startLine, startCol);
+                }
+                return Token(TokenType::Assign, "=", startLine, startCol);
+            case '!':
+                Get();
+                if (Peek() == '=') {
+                    Get();
+                    return Token(TokenType::BangEqual, "!=", startLine, startCol);
+                }
+                throw std::runtime_error("Unexpected character '!' at line " + std::to_string(line));
+            case '>': {
+                Get(); // съели '>'
+                if (Peek() == '=') {
+                    Get(); // съели '='
+                    return Token(TokenType::GreaterEqual, ">=", startLine, startCol);
+                }
+                return Token(TokenType::Greater, ">", startLine, startCol);
+            }
+
+            case '<': {
+                Get(); // съели '<'
+                if (Peek() == '=') {
+                    Get(); // съели '='
+                    return Token(TokenType::LessEqual, "<=", startLine, startCol);
+                }
+                return Token(TokenType::Less, "<", startLine, startCol);
+            }
+            case '+':
+                Get();
+                return Token(TokenType::Plus, "+", startLine, startCol);
+            case '-':
+                Get();
+                return Token(TokenType::Minus, "-", startLine, startCol);
+            case '*':
+                Get();
+                return Token(TokenType::Star, "*", startLine, startCol);
+            case '/':
+                if (PeekNext() == '/') {
+                    SkipCommentIfAny();
+                    continue;
+                } else {
+                    Get();
+                    return Token(TokenType::Slash, "/", startLine, startCol);
+                }
+            case '(':
+                Get();
+                return Token(TokenType::LParen, "(", startLine, startCol);
+            case ')':
+                Get();
+                return Token(TokenType::RParen, ")", startLine, startCol);
+            case '{':
+                Get();
+                return Token(TokenType::LBrace, "{", startLine, startCol);
+            case '}':
+                Get();
+                return Token(TokenType::RBrace, "}", startLine, startCol);
+            case ',':
+                Get();
+                return Token(TokenType::Comma, ",", startLine, startCol);
         }
 
         throw std::runtime_error(

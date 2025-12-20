@@ -1,0 +1,284 @@
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+
+\usepackage{amsmath, amssymb}
+
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{caption}
+\captionsetup[lstlisting]{labelfont=bf, labelsep=period}
+
+% -------------------- Listings: ProbabilityScript --------------------
+\lstdefinelanguage{ProbabilityScript}{
+  morekeywords={repeat,collect,print,print_stat,if},
+  sensitive=true,
+  morecomment=[l]{//},
+  morestring=[b]"
+}
+
+\lstset{
+  language=ProbabilityScript,
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  frame=single,
+  framerule=0.4pt,
+  rulecolor=\color{black!35},
+  backgroundcolor=\color{black!3},
+  numbers=left,
+  numberstyle=\tiny\color{black!55},
+  numbersep=8pt,
+  xleftmargin=1.6em,
+  tabsize=4,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  captionpos=b
+}
+
+\begin{document}
+
+% -------------------- Title page --------------------
+\begin{titlepage}
+\begin{center}
+\large{\textbf{НИЯУ МИФИ}}\\
+\large{\textbf{Кафедра 22 «Кибернетики»}}\\[5cm]
+
+\textbf{\Large Лабораторная работа}\\[0.2cm]
+\textbf{\large на тему: «Разработка компактного языка для вероятностного моделирования»}\\
+\textbf{\large (язык сценариев ProbabilityScript)}\\[5cm]
+
+\begin{flushright}
+Выполнил: \underline{\hspace{5cm}} (ФИО студента)\\[0.3cm]
+Руководитель: \underline{\hspace{5cm}} (ФИО преподавателя)\\
+\end{flushright}
+
+\vfill
+Москва -- 2025
+\end{center}
+\end{titlepage}
+
+% -------------------- Intro --------------------
+\section*{Введение}
+\addcontentsline{toc}{section}{Введение}
+Цель проекта -- разработка компактного предметно-ориентированного языка \textbf{ProbabilityScript} для вероятностного моделирования.
+Язык сценариев предназначен для упрощения моделирования случайных процессов и статистических вычислений.
+В рамках проекта реализован интерпретатор, позволяющий задавать последовательность случайных экспериментов, собирать результаты и рассчитывать основные статистические показатели.
+
+Представленная документация описывает синтаксис и возможности языка ProbabilityScript, архитектуру реализации интерпретатора, пример использования языка, а также содержит заключение с выводами и возможными направлениями развития.
+В приложении приведён полный листинг демонстрационного сценария \texttt{demo\_basic.psc}, иллюстрирующего основные возможности языка.
+
+% -------------------- Syntax --------------------
+\section{Синтаксис языка ProbabilityScript}
+Данный раздел описывает синтаксис и ключевые возможности языка сценариев ProbabilityScript.
+Язык имеет минималистичный синтаксис и предназначен для генерации случайных чисел, повторения серии экспериментов, условий, а также вычислений и сбора статистики.
+Основной (и единственный) тип данных в языке -- вещественное число с плавающей запятой (floating point).
+
+\subsection{Типы данных}
+В языке ProbabilityScript используется один базовый тип данных:
+\begin{itemize}
+    \item \textbf{Вещественные числа:} все переменные и выражения являются числовыми (тип с плавающей запятой, обычно двойной точности). Целочисленные значения не выделяются отдельно, а представляют собой частный случай вещественного.
+\end{itemize}
+
+Переменные в сценарии не объявляются заранее -- они неявно создаются при первом присваивании.
+Имена переменных могут состоять из букв латинского алфавита, цифр и символа подчёркивания, начинаются с буквы или подчёркивания.
+Примеры допустимых имён: \texttt{x}, \texttt{value1}, \texttt{sum\_2}.
+
+\subsection{Выражения и операторы}
+Выражения используются в присваиваниях, \texttt{print}, \texttt{collect}, условиях \texttt{if} и аргументах функций.
+Поддерживаются:
+\begin{itemize}
+    \item \textbf{Числа:} \texttt{1}, \texttt{3.14}.
+    \item \textbf{Переменные:} \texttt{x}, \texttt{sum}.
+    \item \textbf{Вызовы функций:} \texttt{uniform(0, 1)}, \texttt{mean()}.
+    \item \textbf{Унарный минус:} \texttt{-x}, \texttt{-(1 + 2)}.
+    \item \textbf{Скобки:} \texttt{( ... )} для явного задания порядка вычислений.
+\end{itemize}
+
+\medskip
+\noindent\textbf{Арифметические операторы:}
+\[
++, \; -, \; *, \; /
+\]
+Они вычисляют результат как обычные арифметические операции над вещественными числами.
+
+\medskip
+\noindent\textbf{Операторы сравнения:}
+\[
+>, \; <, \; ==, \; !=
+\]
+Результат сравнения является числом: \texttt{1.0}, если условие истинно, и \texttt{0.0}, если ложно.
+Это важно для конструкции \texttt{if}, которая проверяет «ненулевость» результата.
+
+\medskip
+\noindent\textbf{Приоритеты операций (от более высокого к более низкому):}
+\begin{enumerate}
+    \item унарный минус \texttt{-}
+    \item умножение/деление \texttt{*}, \texttt{/}
+    \item сложение/вычитание \texttt{+}, \texttt{-}
+    \item операции сравнения \texttt{>}, \texttt{<}, \texttt{==}, \texttt{!=}
+\end{enumerate}
+
+\subsection{Конструкции языка}
+Язык сценариев предоставляет небольшой набор управляющих конструкций и инструкций:
+\begin{itemize}
+    \item \textbf{Присваивание.} Оператор \texttt{=} используется для присваивания значения переменной: \texttt{x = 5}, \texttt{y = x + 1.5}.
+    \item \textbf{Цикл \texttt{repeat}.} Синтаксис: \texttt{repeat $E$ \{ ... \}}, где $E$ -- числовое выражение (ожидается неотрицательное значение; фактически используется целая часть). Блок в фигурных скобках выполняется указанное число раз. Вложенные блоки и вложенные \texttt{repeat} допускаются.
+    \item \textbf{Условие \texttt{if}.} Синтаксис: \texttt{if $E$ \{ ... \}}, где $E$ -- числовое выражение. Если $E \neq 0$, блок выполняется, иначе пропускается. Обычно в условии используются сравнения, например: \texttt{if x > 0 \{ ... \}}.
+    \item \textbf{Инструкция \texttt{collect}.} \texttt{collect $E$} вычисляет выражение $E$ и добавляет значение в выборку (по умолчанию в единственную текущую выборку).
+    \item \textbf{Вывод \texttt{print}.} \texttt{print $E$} выводит значение выражения $E$ в стандартный вывод. Команда печатает число и перевод строки.
+    \item \textbf{Вывод статистики \texttt{print\_stat}.} \texttt{print\_stat("name")} печатает \textbf{одну} статистику по текущей выборке. Поддерживаются: \texttt{"mean"}, \texttt{"variance"} (или \texttt{"var"}), \texttt{"stddev"} (или \texttt{"std"}), \texttt{"median"}, \texttt{"count"}.
+\end{itemize}
+
+Блоки кода ограничиваются фигурными скобками \texttt{\{\}}.
+Каждая инструкция записывается с новой строки (точка с запятой не требуется).
+Поддерживаются однострочные комментарии \texttt{// ...}.
+
+\subsection{Встроенные функции}
+Для организации вероятностных экспериментов и статистической обработки в языке ProbabilityScript доступны следующие встроенные функции:
+
+\begin{itemize}
+    \item \textbf{\texttt{uniform()}}: равномерное распределение по умолчанию $U(0, 1)$.
+    \item \textbf{\texttt{uniform($b$)}}: равномерное распределение $U(0, b)$.
+    \item \textbf{\texttt{uniform($a$, $b$)}}: равномерное распределение $U(a, b)$, где должно выполняться $a < b$.
+
+    \item \textbf{\texttt{normal()}}: нормальное распределение по умолчанию $N(0, 1)$.
+    \item \textbf{\texttt{normal($\mu$)}}: нормальное распределение $N(\mu, 1)$.
+    \item \textbf{\texttt{normal($\mu$, $\sigma$)}}: нормальное распределение $N(\mu, \sigma)$, где $\sigma > 0$.
+
+    \item \textbf{\texttt{mean()}} – среднее по текущей выборке.
+    \item \textbf{\texttt{variance()}} (или \texttt{var()}) – дисперсия по текущей выборке.
+    \item \textbf{\texttt{stddev()}} (или \texttt{std()}) – стандартное отклонение по текущей выборке.
+    \item \textbf{\texttt{median()}} – медиана по текущей выборке.
+    \item \textbf{\texttt{count()}} – размер текущей выборки.
+\end{itemize}
+
+Функции \texttt{mean}, \texttt{variance}, \texttt{stddev}, \texttt{median}, \texttt{count} не принимают аргументов.
+Если выборка пуста, вызов статистики считается ошибкой исполнения (в текущей реализации).
+
+\subsection{Примеры сценариев}
+Ниже приведены примеры использования ProbabilityScript.
+
+\medskip
+\noindent\textbf{Пример 1. Оценка характеристик равномерного распределения.}
+\begin{lstlisting}[caption={Оценка характеристик равномерного распределения}, label={lst:uniform_stats}]
+N = 100
+repeat N {
+    x = uniform(0, 1)
+    collect x
+}
+print_stat("count")
+print_stat("mean")
+print_stat("variance")
+print_stat("stddev")
+print_stat("median")
+\end{lstlisting}
+
+\medskip
+\noindent\textbf{Пример 2. Условие \texttt{if} и операторы сравнения.}
+\begin{lstlisting}[caption={Условие if и операторы сравнения}, label={lst:if_cmp}]
+x = 1 + 2
+if x > 2 {
+    print 42
+}
+if x == 0 {
+    print 99
+}
+\end{lstlisting}
+
+В этом примере первое условие истинно (печатается \texttt{42}), второе -- ложно (блок не выполняется).
+
+\medskip
+\noindent\textbf{Пример 3. Оценка характеристик нормального распределения.}
+\begin{lstlisting}[caption={Оценка характеристик нормального распределения}, label={lst:normal_stats}]
+N = 50
+repeat N {
+    y = normal(0, 1)
+    collect y
+}
+print mean()
+print stddev()
+\end{lstlisting}
+
+% -------------------- Architecture --------------------
+\section{Архитектура реализации}
+Реализация интерпретатора ProbabilityScript основана на классической структуре интерпретируемого языка:
+входной сценарий последовательно проходит этапы лексического анализа, синтаксического анализа (разбора),
+построения внутреннего представления и непосредственного исполнения.
+
+Основные компоненты системы: лексер, парсер, дерево разбора (AST), интерпретатор, среда выполнения и модуль статистики.
+
+\subsection{Модули интерпретатора}
+\begin{itemize}
+    \item \textbf{Лексер (Lexer).} Преобразует исходный текст в поток токенов: ключевые слова (\texttt{repeat}, \texttt{collect}, \texttt{print}, \texttt{if}),
+    идентификаторы, числа, строковые литералы (для \texttt{print\_stat("...")}),
+    знаки операций и скобки. Поддерживаются однострочные комментарии \texttt{// ...}.
+    \item \textbf{Парсер (Parser).} Строит AST по потоку токенов.
+    Реализованы правила для операторов (\texttt{repeat}, \texttt{if}, \texttt{collect}, \texttt{print}, \texttt{print\_stat}, присваивание),
+    а также выражений с поддержкой арифметики и сравнений.
+    \item \textbf{AST.} Представляет программу как дерево узлов выражений и операторов (в т.ч. \texttt{IfStmt} и \texttt{BinaryExpr} для сравнений).
+    \item \textbf{Интерпретатор.} Выполняет AST. Сравнения возвращают \texttt{1.0/0.0}, а \texttt{if} проверяет условие как «значение не равно нулю».
+    \item \textbf{Среда выполнения (Environment).} Хранит переменные и собранную выборку значений (для \texttt{collect}).
+    \item \textbf{Модуль статистики.} Содержит расчёт статистик по выборке: \texttt{mean}, \texttt{variance}, \texttt{stddev}, \texttt{median}, \texttt{count}.
+\end{itemize}
+
+\subsection{Путь от сценария до исполнения}
+После запуска интерпретатора с указанием сценария ProbabilityScript выполнение происходит по следующим этапам:
+\begin{enumerate}
+    \item Чтение файла сценария (\texttt{.psc}) в строку.
+    \item Лексический анализ: текст преобразуется в токены.
+    \item Синтаксический анализ и построение AST.
+    \item Исполнение AST интерпретатором: вычисление выражений, выполнение \texttt{repeat} и \texttt{if},
+    сбор данных через \texttt{collect}, вывод через \texttt{print} и \texttt{print\_stat}.
+    \item Завершение работы (или сообщение об ошибке при некорректном сценарии/ошибке исполнения).
+\end{enumerate}
+
+% -------------------- Usage --------------------
+\section{Пример использования}
+\begin{enumerate}
+    \item \textbf{Подготовка сценария.} Сценарий хранится в файле с расширением \texttt{.psc}.
+    \item \textbf{Запуск интерпретатора.} Пример:
+\begin{verbatim}
+$ psc demo_basic.psc
+\end{verbatim}
+    \item \textbf{Фиксация seed (воспроизводимость).} Пример:
+\begin{verbatim}
+$ psc --seed=42 demo_basic.psc
+\end{verbatim}
+\end{enumerate}
+
+% -------------------- Conclusion --------------------
+\section*{Заключение}
+\addcontentsline{toc}{section}{Заключение}
+В рамках проекта разработан и реализован простой интерпретируемый язык сценариев \textbf{ProbabilityScript} для вероятностного моделирования.
+Язык поддерживает генерацию случайных чисел из базовых распределений (равномерного и нормального),
+повторение серий экспериментов с накоплением результатов, вычисление основных статистических характеристик выборки,
+условный оператор \texttt{if} на базе числовой семантики истинности,
+а также выражения с арифметическими операциями и операторами сравнения.
+
+Дальнейшее развитие может включать добавление \texttt{else}, логических операций (\texttt{\&\&}, \texttt{||}),
+новых распределений, поддержку нескольких именованных выборок, расширение типов данных и более удобные средства вывода/экспорта результатов.
+
+% -------------------- Appendix --------------------
+\appendix
+\section*{Приложение: Полный листинг сценария \texttt{demo\_basic.psc}}
+\addcontentsline{toc}{section}{Приложение: Листинг сценария demo\_basic.psc}
+
+\begin{lstlisting}[caption={Сценарий demo\_basic.psc}, label={lst:demo_basic}]
+// demo_basic.psc
+
+N = 100
+repeat N {
+    x = uniform(0, 1)
+    collect x
+}
+print_stat("count")
+print_stat("mean")
+print_stat("variance")
+print_stat("stddev")
+print_stat("median")
+\end{lstlisting}
+
+\end{document}
