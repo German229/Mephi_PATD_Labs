@@ -1,7 +1,8 @@
-repeat 1000 {
+N = 100
+
+repeat N {
     x = uniform(0, 1)
     collect x
-    print_stat("count")
 }
 
 print_stat("count")

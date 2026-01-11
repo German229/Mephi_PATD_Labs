@@ -2,49 +2,78 @@
 
 #include <string>
 
+/*
+ * Перечисление TokenType описывает все возможные типы токенов,
+ * которые может порождать лексический анализатор языка ProbabilityScript.
+ *
+ * Каждый токен представляет собой атомарный элемент исходного текста,
+ * используемый синтаксическим анализатором при построении AST.
+ */
 enum class TokenType {
-    EndOfFile,
+    // Специальные токены
+    EndOfFile,        // Конец входного файла
 
-    Identifier,
-    Number,
-    StringLiteral,
+    // Базовые типы токенов
+    Identifier,       // Идентификатор (имя переменной или функции)
+    Number,           // Числовой литерал
+    StringLiteral,    // Строковый литерал
 
-    // Keywords
-    KeywordRepeat,
-    KeywordCollect,
-    KeywordPrint,
-    KeywordPrintStat,
-    If,
+    // Ключевые слова языка
+    KeywordRepeat,    // repeat
+    KeywordCollect,   // collect
+    KeywordPrint,     // print
+    KeywordPrintStat, // print_stat
+    If,               // if
 
-    // Symbols
-    Assign,       // =
-    Plus,         // +
-    Minus,        // -
-    Star,         // *
-    Slash,        // /
-    LParen,       // (
-    RParen,       // )
-    LBrace,       // {
-    RBrace,       // }
-    Comma,        // ,
-    Greater,      // >
-    Less,         // <
-    EqualEqual,   // ==
-    BangEqual,     // !=
-    GreaterEqual, // >=   <-- добавить
-    LessEqual    // <=   <-- добавить
+    // Операторы и разделители
+    Assign,           // =
+    Plus,             // +
+    Minus,            // -
+    Star,             // *
+    Slash,            // /
+    LParen,           // (
+    RParen,           // )
+    LBrace,           // {
+    RBrace,           // }
+    Comma,            // ,
+
+    // Операторы сравнения
+    Greater,          // >
+    Less,             // <
+    EqualEqual,       // ==
+    BangEqual,        // !=
+    GreaterEqual,     // >=
+    LessEqual         // <=
 };
 
+/*
+ * Структура Token представляет один лексический токен.
+ *
+ * Используется парсером для анализа синтаксической структуры программы.
+ */
 struct Token {
-    TokenType type;
-    std::string text;
-    int line;
-    int column;
+    TokenType type;   // Тип токена
+    std::string text; // Текстовое представление токена
+    int line;         // Номер строки, где начинается токен
+    int column;       // Номер столбца, где начинается токен
 
+    /*
+     * Конструктор токена.
+     *
+     * @param t  тип токена
+     * @param s  текст токена
+     * @param l  номер строки
+     * @param c  номер столбца
+     */
     Token(TokenType t, std::string s, int l, int c)
         : type(t), text(std::move(s)), line(l), column(c) {}
 };
 
+/*
+ * Вспомогательная функция для преобразования TokenType в строку.
+ *
+ * Используется для отладки и диагностических сообщений.
+ */
 inline const char* TokenTypeToString(TokenType type) {
     switch (type) {
         case TokenType::EndOfFile:        return "EndOfFile";
@@ -72,6 +101,8 @@ inline const char* TokenTypeToString(TokenType type) {
         case TokenType::Less:             return "Less";
         case TokenType::EqualEqual:       return "EqualEqual";
         case TokenType::BangEqual:        return "BangEqual";
+        case TokenType::GreaterEqual:     return "GreaterEqual";
+        case TokenType::LessEqual:        return "LessEqual";
 
         default:                          return "Unknown";
     }

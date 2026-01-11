@@ -1,11 +1,21 @@
 #include "environment.h"
 
-// ================== Переменные ==================
+// ============================================================
+//                        Переменные
+// ============================================================
 
+/*
+ * Проверить, существует ли переменная с заданным именем.
+ */
 bool Environment::HasVariable(const std::string& name) const {
     return variables.find(name) != variables.end();
 }
 
+/*
+ * Получить значение переменной.
+ *
+ * @throws std::runtime_error если переменная не определена.
+ */
 Value Environment::GetVariable(const std::string& name) const {
     auto it = variables.find(name);
     if (it == variables.end()) {
@@ -14,16 +24,29 @@ Value Environment::GetVariable(const std::string& name) const {
     return it->second;
 }
 
+/*
+ * Создать новую переменную или обновить существующую.
+ */
 void Environment::SetVariable(const std::string& name, const Value& value) {
     variables[name] = value;
 }
 
-// ================== Выборки ==================
+// ============================================================
+//                         Выборки
+// ============================================================
 
+/*
+ * Проверить, существует ли выборка с заданным именем.
+ */
 bool Environment::HasSample(const std::string& sampleName) const {
     return samples.find(sampleName) != samples.end();
 }
 
+/*
+ * Получить выборку значений (только для чтения).
+ *
+ * @return указатель на выборку или nullptr, если выборка не существует.
+ */
 const Sequence<Value>* Environment::GetSample(const std::string& sampleName) const {
     auto it = samples.find(sampleName);
     if (it == samples.end()) {
@@ -32,11 +55,19 @@ const Sequence<Value>* Environment::GetSample(const std::string& sampleName) con
     return it->second.get();
 }
 
+/*
+ * Добавить значение в выборку.
+ *
+ * Если выборка не существует, она создаётся автоматически.
+ *
+ * Важно: метод Append у Sequence<Value> не изменяет текущий объект,
+ * а возвращает новый экземпляр последовательности.
+ * Поэтому старая последовательность заменяется новой.
+ */
 void Environment::CollectSample(const std::string& sampleName, const Value& value) {
-    // Находим или создаём выборку
+    // Найти или создать выборку
     auto it = samples.find(sampleName);
     if (it == samples.end()) {
-        // Создаём пустую MutableArraySequence<Value>
         auto seqPtr = std::make_unique<MutableArraySequence<Value>>();
         it = samples.emplace(sampleName, std::move(seqPtr)).first;
     }
@@ -44,10 +75,9 @@ void Environment::CollectSample(const std::string& sampleName, const Value& valu
     // Текущая последовательность
     Sequence<Value>* seq = it->second.get();
 
-    // Append в нашей модели НЕ модифицирует текущее Sequence,
-    // а создаёт НОВУЮ последовательность и возвращает её указатель.
+    // Добавление элемента создаёт новую последовательность
     Sequence<Value>* newSeq = seq->Append(value);
 
-    // Заменяем старую последовательность на новую.
+    // Заменяем старую последовательность на новую
     it->second.reset(newSeq);
 }

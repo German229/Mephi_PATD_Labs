@@ -10,32 +10,87 @@
 #include "sequence.h"
 #include "value.h"
 
-// Простой модуль статистики для выборок Value (сейчас только числа).
-// Поддерживаем:
-//  - Count   (размер выборки)
-//  - Mean    (среднее, по формуле sum / n)
-//  - Variance (дисперсия, по формуле sum (x - mean)^2 / n)
-//  - StdDev  (стандартное отклонение = sqrt(variance))
-//  - Median  (медиана — по отсортированной выборке)
+/*
+ * Модуль Statistics
+ *
+ * Предоставляет набор базовых статистических функций
+ * для выборок значений типа Value.
+ *
+ * На текущий момент предполагается, что все значения —
+ * вещественные числа (double).
+ *
+ * Поддерживаемые статистики:
+ *  - Count    — размер выборки
+ *  - Mean     — среднее арифметическое
+ *  - Variance — дисперсия (population variance)
+ *  - StdDev   — стандартное отклонение
+ *  - Median   — медиана
+ */
 class Statistics {
 public:
-    // Размер выборки
+    /*
+     * Получить количество элементов в выборке.
+     *
+     * @param seq  Последовательность значений.
+     * @return     Число элементов в выборке.
+     */
     static std::size_t Count(const Sequence<Value>& seq);
 
-    // Среднее значение (мат. ожидание по выборке)
-    // Если выборка пуста — бросаем std::runtime_error.
+    /*
+     * Вычислить среднее арифметическое выборки.
+     *
+     * Формула:
+     *   mean = (1 / n) * sum(x_i)
+     *
+     * @param seq  Последовательность значений.
+     * @return     Среднее значение.
+     *
+     * @throws std::runtime_error если выборка пуста.
+     */
     static double Mean(const Sequence<Value>& seq);
 
-    // Дисперсия (population variance): sum (x - mean)^2 / n
-    // Если выборка пуста — бросаем std::runtime_error.
+    /*
+     * Вычислить дисперсию выборки (population variance).
+     *
+     * Формула:
+     *   variance = (1 / n) * sum( (x_i - mean)^2 )
+     *
+     * Используется population variance, а не unbiased estimator.
+     *
+     * @param seq  Последовательность значений.
+     * @return     Дисперсия.
+     *
+     * @throws std::runtime_error если выборка пуста.
+     */
     static double Variance(const Sequence<Value>& seq);
 
-    // Стандартное отклонение: sqrt(Variance)
+    /*
+     * Вычислить стандартное отклонение.
+     *
+     * Формула:
+     *   stddev = sqrt(variance)
+     *
+     * @param seq  Последовательность значений.
+     * @return     Стандартное отклонение.
+     *
+     * @throws std::runtime_error если выборка пуста.
+     */
     static double StdDev(const Sequence<Value>& seq);
 
-    // Медиана (по отсортированной выборке):
-    //  - для нечётного n — центральное значение;
-    //  - для чётного n — среднее двух центральных.
-    // Если выборка пуста — бросаем std::runtime_error.
+    /*
+     * Вычислить медиану выборки.
+     *
+     * Алгоритм:
+     *  1. Копирование значений в std::vector<double>
+     *  2. Сортировка
+     *  3. Выбор центрального элемента:
+     *     - при нечётном n — значение с индексом n / 2
+     *     - при чётном n — среднее двух центральных значений
+     *
+     * @param seq  Последовательность значений.
+     * @return     Медиана.
+     *
+     * @throws std::runtime_error если выборка пуста.
+     */
     static double Median(const Sequence<Value>& seq);
 };
