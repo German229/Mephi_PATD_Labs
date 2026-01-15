@@ -95,7 +95,6 @@ double Statistics::StdDev(const Sequence<Value>& seq) {
  *  3. Выбор центрального элемента:
  *     - при нечётном размере — средний элемент
  *     - при чётном размере — среднее двух центральных
- *     - при чётном размере — среднее двух центральных
  */
 double Statistics::Median(const Sequence<Value>& seq) {
     std::size_t n = seq.GetLength();
@@ -118,4 +117,64 @@ double Statistics::Median(const Sequence<Value>& seq) {
         std::size_t mid = n / 2;
         return (data[mid - 1] + data[mid]) / 2.0;
     }
+}
+
+/*
+ * Ковариация двух выборок (population covariance).
+ */
+double Statistics::Covariance(const Sequence<Value>& x, const Sequence<Value>& y) {
+    std::size_t nx = x.GetLength();
+    std::size_t ny = y.GetLength();
+
+    if (nx == 0 || ny == 0) {
+        throw std::runtime_error("Cannot compute covariance of empty sample");
+    }
+
+    if (nx != ny) {
+        throw std::runtime_error("Cannot compute covariance: sample sizes differ");
+    }
+
+    double meanX = Mean(x);
+    double meanY = Mean(y);
+
+    double sum = 0.0;
+    for (std::size_t i = 0; i < nx; ++i) {
+        double xi = x.Get(i).AsNumber();
+        double yi = y.Get(i).AsNumber();
+        sum += (xi - meanX) * (yi - meanY);
+    }
+
+    return sum / static_cast<double>(nx);
+}
+
+/*
+ * Коэффициент корреляции Пирсона.
+ */
+double Statistics::Correlation(const Sequence<Value>& x, const Sequence<Value>& y) {
+    std::size_t nx = x.GetLength();
+    std::size_t ny = y.GetLength();
+
+    if (nx == 0 || ny == 0) {
+        throw std::runtime_error("Cannot compute correlation of empty sample");
+    }
+
+    if (nx != ny) {
+        throw std::runtime_error("Cannot compute correlation: sample sizes differ");
+    }
+
+    double sx = StdDev(x);
+    double sy = StdDev(y);
+
+    if (!(sx > 0.0) || !(sy > 0.0) || !std::isfinite(sx) || !std::isfinite(sy)) {
+        throw std::runtime_error("Cannot compute correlation: stddev must be finite and > 0 for both samples");
+    }
+
+    double cov = Covariance(x, y);
+    double r = cov / (sx * sy);
+
+    if (!std::isfinite(r)) {
+        throw std::runtime_error("Cannot compute correlation: result is not finite");
+    }
+
+    return r;
 }

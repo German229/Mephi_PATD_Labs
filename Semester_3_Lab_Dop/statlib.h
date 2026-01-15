@@ -20,11 +20,15 @@
  * вещественные числа (double).
  *
  * Поддерживаемые статистики:
- *  - Count    — размер выборки
- *  - Mean     — среднее арифметическое
- *  - Variance — дисперсия (population variance)
- *  - StdDev   — стандартное отклонение
- *  - Median   — медиана
+ *  - Count          — размер выборки
+ *  - Mean           — среднее арифметическое
+ *  - Variance       — дисперсия (population variance)
+ *  - StdDev         — стандартное отклонение
+ *  - Median         — медиана
+ *  - Moment         — начальный момент k-го порядка
+ *  - CentralMoment  — центральный момент k-го порядка
+ *  - Covariance     — ковариация двух выборок (population covariance)
+ *  - Correlation    — коэффициент корреляции Пирсона
  */
 class Statistics {
 public:
@@ -63,7 +67,6 @@ public:
      * @throws std::runtime_error если выборка пуста.
      */
     static double Variance(const Sequence<Value>& seq);
-
 
     /*
      * Начальный момент k-го порядка:
@@ -118,4 +121,36 @@ public:
      * @throws std::runtime_error если выборка пуста.
      */
     static double Median(const Sequence<Value>& seq);
+
+    /*
+     * Ковариация двух выборок (population covariance).
+     *
+     * Требование: выборки должны быть одинаковой длины и непустыми.
+     *
+     * Формула:
+     *   cov(X,Y) = (1 / n) * sum( (x_i - mean_x) * (y_i - mean_y) )
+     *
+     * @param x   Первая выборка.
+     * @param y   Вторая выборка.
+     * @return    Ковариация.
+     *
+     * @throws std::runtime_error если выборка пуста или длины не совпадают.
+     */
+    static double Covariance(const Sequence<Value>& x, const Sequence<Value>& y);
+
+    /*
+     * Коэффициент корреляции Пирсона.
+     *
+     * Формула:
+     *   corr(X,Y) = cov(X,Y) / (std_x * std_y)
+     *
+     * Требование: выборки одинаковой длины, непустые, std_x > 0 и std_y > 0.
+     *
+     * @param x   Первая выборка.
+     * @param y   Вторая выборка.
+     * @return    Корреляция.
+     *
+     * @throws std::runtime_error если выборка пуста, длины не совпадают или std == 0.
+     */
+    static double Correlation(const Sequence<Value>& x, const Sequence<Value>& y);
 };
