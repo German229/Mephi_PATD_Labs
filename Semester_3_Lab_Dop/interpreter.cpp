@@ -1,8 +1,9 @@
+// interpreter.cpp
 #include "interpreter.h"
 
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
-#include <cmath>
 
 /*
  * Конструктор интерпретатора.
@@ -154,9 +155,9 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
 
         switch (bin->op) {
             case BinaryOp::Add:           return left + right;
-            case BinaryOp::Subtract:     return left - right;
-            case BinaryOp::Multiply:     return left * right;
-            case BinaryOp::Divide:       return left / right;
+            case BinaryOp::Subtract:      return left - right;
+            case BinaryOp::Multiply:      return left * right;
+            case BinaryOp::Divide:        return left / right;
 
             case BinaryOp::Greater:
                 return Value::FromNumber(left.AsNumber() > right.AsNumber());
@@ -179,24 +180,80 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
     if (auto* call = dynamic_cast<CallExpr*>(expr)) {
         const std::string& name = call->callee;
         const auto& args = call->args;
+
         // ===== Явная статистика (требование ЛР) =====
-        // get_stat("mean", A), get_stat("count", l), ...
+        //
+        // 2 аргумента:
+        //   get_stat("mean", A)
+        //
+        // 3 аргумента:
+        //   get_stat("moment", A, 2)
+        //   get_stat("central_moment", A, 2)
+        //
         if (name == "get_stat") {
-            if (args.size() != 2) {
-                throw std::runtime_error("get_stat() expects 2 arguments: get_stat(\"mean\", A)");
+            if (args.size() != 2 && args.size() != 3) {
+                throw std::runtime_error(
+                    "get_stat() expects 2 or 3 arguments: "
+                    "get_stat(\"mean\", A) or get_stat(\"moment\", A, 2)"
+                );
             }
 
             auto* stat = dynamic_cast<StringExpr*>(args[0].get());
             if (!stat) {
-                throw std::runtime_error("get_stat(): first argument must be a string literal, e.g. \"mean\"");
+                throw std::runtime_error(
+                    "get_stat(): first argument must be a string literal, e.g. \"mean\""
+                );
             }
 
             auto* sample = dynamic_cast<SampleRefExpr*>(args[1].get());
             if (!sample) {
-                throw std::runtime_error("get_stat(): second argument must be a sample identifier, e.g. get_stat(\"mean\", A)");
+                throw std::runtime_error(
+                    "get_stat(): second argument must be a sample identifier, e.g. get_stat(\"mean\", A)"
+                );
             }
 
-            return Value::FromNumber(GetSampleStat(stat->value, sample->name));
+            if (args.size() == 2) {
+                return Value::FromNumber(GetSampleStat(stat->value, sample->name));
+            }
+
+            double kd = EvaluateExpression(args[2].get()).AsNumber();
+            if (!std::isfinite(kd) || kd < 0.0 || std::floor(kd) != kd) {
+                throw std::runtime_error(
+                    "get_stat(): k must be a non-negative integer, e.g. 2"
+                );
+            }
+
+            std::size_t k = static_cast<std::size_t>(kd);
+            return Value::FromNumber(GetSampleStat(stat->value, sample->name, k));
+        }
+
+        // ===== Математические функции (для композиции) =====
+
+        if (name == "sqrt") {
+            if (args.size() != 1) {
+                throw std::runtime_error("sqrt(x) expects exactly 1 argument");
+            }
+            double x = EvaluateExpression(args[0].get()).AsNumber();
+            if (x < 0.0 || !std::isfinite(x)) {
+                throw std::runtime_error("sqrt(x): x must be finite and >= 0");
+            }
+            return Value::FromNumber(std::sqrt(x));
+        }
+
+        if (name == "pow") {
+            if (args.size() != 2) {
+                throw std::runtime_error("pow(x, y) expects exactly 2 arguments");
+            }
+            double x = EvaluateExpression(args[0].get()).AsNumber();
+            double y = EvaluateExpression(args[1].get()).AsNumber();
+            if (!std::isfinite(x) || !std::isfinite(y)) {
+                throw std::runtime_error("pow(x, y): x and y must be finite");
+            }
+            double r = std::pow(x, y);
+            if (!std::isfinite(r)) {
+                throw std::runtime_error("pow(x, y): result is not finite");
+            }
+            return Value::FromNumber(r);
         }
 
         // ===== Распределения =====
@@ -243,15 +300,14 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
             return Value::FromNumber(dist(rng));
         }
 
-        // ===== Статистика =====
+        // ===== Запрет неявной статистики =====
 
         if (name == "mean" || name == "variance" ||
             name == "stddev" || name == "median" || name == "count") {
-                    throw std::runtime_error(
-                        "Implicit statistics are disabled. Use get_stat(\"" + name + "\", <sample>)"
-                    );
-            }
-
+            throw std::runtime_error(
+                "Implicit statistics are disabled. Use get_stat(\"" + name + "\", <sample>)"
+            );
+        }
 
         throw std::runtime_error("Unknown function: " + name);
     }
@@ -269,11 +325,16 @@ void Interpreter::PrintValue(const Value& v) {
 }
 
 /*
- * Получить статистическую характеристику выборки.
+ * Получить статистическую характеристику выборки (2-аргументная форма).
  */
 double Interpreter::GetSampleStat(const std::string& statName, const std::string& sampleName) {
-    const Sequence<Value>* seq = env.GetSample(sampleName);
+    if (statName == "moment" || statName == "central_moment") {
+        throw std::runtime_error(
+            "Use get_stat(\"" + statName + "\", <sample>, k) with 3 arguments"
+        );
+    }
 
+    const Sequence<Value>* seq = env.GetSample(sampleName);
     if (!seq || seq->GetLength() == 0) {
         throw std::runtime_error("Sample '" + sampleName + "' is empty or does not exist");
     }
@@ -288,8 +349,32 @@ double Interpreter::GetSampleStat(const std::string& statName, const std::string
 }
 
 /*
- * Реализация оператора print_stat.
+ * Получить статистическую характеристику выборки с параметром k (3-аргументная форма).
+ */
+double Interpreter::GetSampleStat(const std::string& statName, const std::string& sampleName, std::size_t k) {
+    const Sequence<Value>* seq = env.GetSample(sampleName);
+    if (!seq || seq->GetLength() == 0) {
+        throw std::runtime_error("Sample '" + sampleName + "' is empty or does not exist");
+    }
+
+    if (statName == "moment") {
+        return Statistics::Moment(*seq, k);
+    }
+    if (statName == "central_moment") {
+        return Statistics::CentralMoment(*seq, k);
+    }
+
+    throw std::runtime_error(
+        "Statistic '" + statName + "' does not accept k. "
+        "Use get_stat(\"mean\", A) or get_stat(\"moment\", A, 2)"
+    );
+}
+
+/*
+ * print_stat отключён.
  */
 void Interpreter::ExecutePrintStat(const std::string&) {
-    throw std::runtime_error("print_stat is disabled. Use print(get_stat(\"mean\", <sample>))");
+    throw std::runtime_error(
+        "print_stat is disabled. Use print(get_stat(\"mean\", <sample>))"
+    );
 }

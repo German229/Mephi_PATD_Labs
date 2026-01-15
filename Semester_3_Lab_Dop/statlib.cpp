@@ -11,6 +11,47 @@ std::size_t Statistics::Count(const Sequence<Value>& seq) {
     return seq.GetLength();
 }
 
+double Statistics::Moment(const Sequence<Value>& seq, std::size_t k) {
+    std::size_t n = seq.GetLength();
+    if (n == 0) {
+        throw std::runtime_error("Cannot compute moment of empty sample");
+    }
+
+    if (k == 0) {
+        return 1.0;
+    }
+
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = seq.Get(i).AsNumber();
+        sum += std::pow(x, static_cast<double>(k));
+    }
+
+    return sum / static_cast<double>(n);
+}
+
+double Statistics::CentralMoment(const Sequence<Value>& seq, std::size_t k) {
+    std::size_t n = seq.GetLength();
+    if (n == 0) {
+        throw std::runtime_error("Cannot compute central moment of empty sample");
+    }
+
+    if (k == 0) {
+        return 1.0;
+    }
+
+    double mean = Moment(seq, 1);
+    double sum = 0.0;
+
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = seq.Get(i).AsNumber();
+        double d = x - mean;
+        sum += std::pow(d, static_cast<double>(k));
+    }
+
+    return sum / static_cast<double>(n);
+}
+
 /*
  * Вычисляет среднее арифметическое значений в выборке.
  *
@@ -20,18 +61,7 @@ std::size_t Statistics::Count(const Sequence<Value>& seq) {
  * Выборка должна быть непустой.
  */
 double Statistics::Mean(const Sequence<Value>& seq) {
-    std::size_t n = seq.GetLength();
-    if (n == 0) {
-        throw std::runtime_error("Cannot compute mean of empty sample");
-    }
-
-    double sum = 0.0;
-    for (std::size_t i = 0; i < n; ++i) {
-        const Value& v = seq.Get(i);
-        sum += v.AsNumber();
-    }
-
-    return sum / static_cast<double>(n);
+    return Moment(seq, 1);
 }
 
 /*
@@ -43,21 +73,7 @@ double Statistics::Mean(const Sequence<Value>& seq) {
  * Используется population variance, а не несмещённая оценка.
  */
 double Statistics::Variance(const Sequence<Value>& seq) {
-    std::size_t n = seq.GetLength();
-    if (n == 0) {
-        throw std::runtime_error("Cannot compute variance of empty sample");
-    }
-
-    double mean = Mean(seq);
-    double sumSq = 0.0;
-
-    for (std::size_t i = 0; i < n; ++i) {
-        double x = seq.Get(i).AsNumber();
-        double diff = x - mean;
-        sumSq += diff * diff;
-    }
-
-    return sumSq / static_cast<double>(n);
+    return CentralMoment(seq, 2);
 }
 
 /*
@@ -67,8 +83,7 @@ double Statistics::Variance(const Sequence<Value>& seq) {
  *   stddev = sqrt(variance)
  */
 double Statistics::StdDev(const Sequence<Value>& seq) {
-    double var = Variance(seq);
-    return std::sqrt(var);
+    return std::sqrt(CentralMoment(seq, 2));
 }
 
 /*
@@ -79,6 +94,7 @@ double Statistics::StdDev(const Sequence<Value>& seq) {
  *  2. Сортировка
  *  3. Выбор центрального элемента:
  *     - при нечётном размере — средний элемент
+ *     - при чётном размере — среднее двух центральных
  *     - при чётном размере — среднее двух центральных
  */
 double Statistics::Median(const Sequence<Value>& seq) {
@@ -97,10 +113,8 @@ double Statistics::Median(const Sequence<Value>& seq) {
     std::sort(data.begin(), data.end());
 
     if (n % 2 == 1) {
-        // Нечётное число элементов — центральный элемент
         return data[n / 2];
     } else {
-        // Чётное — среднее двух центральных
         std::size_t mid = n / 2;
         return (data[mid - 1] + data[mid]) / 2.0;
     }

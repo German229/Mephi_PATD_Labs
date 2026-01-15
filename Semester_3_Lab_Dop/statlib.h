@@ -64,6 +64,31 @@ public:
      */
     static double Variance(const Sequence<Value>& seq);
 
+
+    /*
+     * Начальный момент k-го порядка:
+     *   moment_k = (1 / n) * sum(x_i^k)
+     *
+     * @param seq  Последовательность значений.
+     * @param k    Порядок момента (k >= 0).
+     * @return     Значение момента.
+     *
+     * @throws std::runtime_error если выборка пуста.
+     */
+    static double Moment(const Sequence<Value>& seq, std::size_t k);
+
+    /*
+     * Центральный момент k-го порядка:
+     *   cmoment_k = (1 / n) * sum((x_i - mean)^k)
+     *
+     * @param seq  Последовательность значений.
+     * @param k    Порядок момента (k >= 0).
+     * @return     Значение центрального момента.
+     *
+     * @throws std::runtime_error если выборка пуста.
+     */
+    static double CentralMoment(const Sequence<Value>& seq, std::size_t k);
+
     /*
      * Вычислить стандартное отклонение.
      *
