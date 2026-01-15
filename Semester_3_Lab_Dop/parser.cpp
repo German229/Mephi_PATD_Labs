@@ -96,7 +96,6 @@ std::unique_ptr<Stmt> Parser::ParseStatement() {
         return std::make_unique<CollectStmt>(std::move(sampleName), std::move(expr));
     }
 
-
     if (Match(TokenType::KeywordPrint)) {
         auto expr = ParseExpression();
         return std::make_unique<PrintStmt>(std::move(expr));
