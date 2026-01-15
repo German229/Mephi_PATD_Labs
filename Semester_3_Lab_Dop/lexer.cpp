@@ -2,6 +2,18 @@
 
 #include <cctype>
 #include <stdexcept>
+#include <string>
+
+/*
+ * Локальная утилита: сформировать сообщение об ошибке с позицией.
+ */
+static std::runtime_error LexError(int line, int col, const std::string& msg) {
+    return std::runtime_error(
+        "Lex error at line " + std::to_string(line) +
+        ", column " + std::to_string(col) +
+        ": " + msg
+    );
+}
 
 /*
  * Конструктор лексера.
@@ -31,8 +43,10 @@ char Lexer::PeekNext() const {
 /*
  * Считывает текущий символ и продвигает позицию вперёд.
  * Корректно обновляет номер строки и столбца.
+ *
+ * Примечание: преподаватель просил Read() вместо Get().
  */
-char Lexer::Get() {
+char Lexer::Read() {
     if (pos >= source.size()) return '\0';
 
     char c = source[pos++];
@@ -53,7 +67,7 @@ void Lexer::SkipWhitespace() {
     while (true) {
         char c = Peek();
         if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
-            Get();
+            Read();
             continue;
         }
         break;
@@ -67,7 +81,7 @@ void Lexer::SkipWhitespace() {
 void Lexer::SkipCommentIfAny() {
     if (Peek() == '/' && PeekNext() == '/') {
         while (Peek() != '\0' && Peek() != '\n') {
-            Get();
+            Read();
         }
     }
 }
@@ -88,56 +102,103 @@ bool Lexer::IsIdentChar(char c) {
 
 /*
  * Лексический разбор числового литерала.
- * Поддерживаются целые и вещественные числа с одной точкой.
+ *
+ * Поддержка:
+ *   DIGITS
+ *   DIGITS '.' DIGITS
+ *
+ * Запрещено (ошибка):
+ *   12.      (нет дробной части)
+ *   12..3    (две точки)
+ *   123abc   (число + буквы)
  */
 Token Lexer::LexNumber(int startLine, int startCol) {
     std::string buf;
     bool seenDot = false;
 
-    while (true) {
-        char c = Peek();
-        if (std::isdigit(static_cast<unsigned char>(c))) {
-            buf.push_back(Get());
-        } else if (c == '.' && !seenDot) {
-            seenDot = true;
-            buf.push_back(Get());
-        } else {
-            break;
+    // 1) Целая часть (минимум одна цифра гарантирована вызовом)
+    while (std::isdigit(static_cast<unsigned char>(Peek()))) {
+        buf.push_back(Read());
+    }
+
+    // 2) Дробная часть (если есть точка)
+    if (Peek() == '.') {
+        seenDot = true;
+        buf.push_back(Read()); // '.'
+
+        // Требуем хотя бы одну цифру после точки
+        if (!std::isdigit(static_cast<unsigned char>(Peek()))) {
+            throw LexError(startLine, startCol, "Invalid number literal: expected digits after '.'");
+        }
+
+        while (std::isdigit(static_cast<unsigned char>(Peek()))) {
+            buf.push_back(Read());
         }
     }
 
+    // 3) Явные запреты: вторая точка или буквы/подчёркивание сразу после числа
+    if (Peek() == '.') {
+        throw LexError(startLine, startCol, "Invalid number literal: multiple '.' in number");
+    }
+    if (IsIdentStart(Peek())) {
+        throw LexError(startLine, startCol, "Invalid number literal: letters after number (e.g. 123abc)");
+    }
+
+    (void)seenDot;
     return Token(TokenType::Number, buf, startLine, startCol);
 }
 
 /*
  * Лексический разбор строкового литерала в двойных кавычках.
- * Строки не могут содержать перевод строки.
+ *
+ * Поддерживаемые escape-последовательности:
+ *   \\  \"  \n  \t  \r
+ *
+ * Любая неизвестная escape-последовательность — ошибка.
  */
 Token Lexer::LexStringLiteral(int startLine, int startCol) {
-    Get(); // пропускаем открывающую кавычку
+    Read(); // пропускаем открывающую кавычку
     std::string buf;
 
     while (true) {
         char c = Peek();
 
         if (c == '\0') {
-            throw std::runtime_error(
-                "Unterminated string literal at line " + std::to_string(startLine)
-            );
-        }
-
-        if (c == '"') {
-            Get(); // закрывающая кавычка
-            break;
+            throw LexError(startLine, startCol, "Unterminated string literal");
         }
 
         if (c == '\n') {
-            throw std::runtime_error(
-                "String literal cannot contain newline at line " + std::to_string(startLine)
-            );
+            throw LexError(startLine, startCol, "String literal cannot contain newline");
         }
 
-        buf.push_back(Get());
+        if (c == '"') {
+            Read(); // закрывающая кавычка
+            break;
+        }
+
+        if (c == '\\') {
+            int escLine = line;
+            int escCol = column;
+
+            Read(); // '\'
+            char e = Peek();
+            if (e == '\0') {
+                throw LexError(escLine, escCol, "Unterminated escape sequence in string literal");
+            }
+
+            switch (e) {
+                case '\\': Read(); buf.push_back('\\'); break;
+                case '"':  Read(); buf.push_back('"');  break;
+                case 'n':  Read(); buf.push_back('\n'); break;
+                case 't':  Read(); buf.push_back('\t'); break;
+                case 'r':  Read(); buf.push_back('\r'); break;
+                default:
+                    throw LexError(escLine, escCol, std::string("Invalid escape sequence: \\") + e);
+            }
+            continue;
+        }
+
+        buf.push_back(Read());
     }
 
     return Token(TokenType::StringLiteral, buf, startLine, startCol);
@@ -149,10 +210,10 @@ Token Lexer::LexStringLiteral(int startLine, int startCol) {
  */
 Token Lexer::LexIdentifierOrKeyword(int startLine, int startCol) {
     std::string buf;
-    buf.push_back(Get());
+    buf.push_back(Read());
 
     while (IsIdentChar(Peek())) {
-        buf.push_back(Get());
+        buf.push_back(Read());
     }
 
     if (buf == "repeat")     return Token(TokenType::KeywordRepeat, buf, startLine, startCol);
@@ -170,8 +231,12 @@ Token Lexer::LexIdentifierOrKeyword(int startLine, int startCol) {
  */
 Token Lexer::NextToken() {
     while (true) {
+        // Пропуск пробелов и комментариев
         SkipWhitespace();
-        SkipCommentIfAny();
+        if (Peek() == '/' && PeekNext() == '/') {
+            SkipCommentIfAny();
+            continue;
+        }
         SkipWhitespace();
 
         char c = Peek();
@@ -196,62 +261,56 @@ Token Lexer::NextToken() {
 
         switch (c) {
             case '=':
-                Get();
+                Read();
                 if (Peek() == '=') {
-                    Get();
+                    Read();
                     return Token(TokenType::EqualEqual, "==", startLine, startCol);
                 }
                 return Token(TokenType::Assign, "=", startLine, startCol);
 
             case '!':
-                Get();
+                Read();
                 if (Peek() == '=') {
-                    Get();
+                    Read();
                     return Token(TokenType::BangEqual, "!=", startLine, startCol);
                 }
-                throw std::runtime_error(
-                    "Unexpected character '!' at line " + std::to_string(line)
-                );
+                throw LexError(startLine, startCol, "Unexpected character '!': expected '!='");
 
             case '>':
-                Get();
+                Read();
                 if (Peek() == '=') {
-                    Get();
+                    Read();
                     return Token(TokenType::GreaterEqual, ">=", startLine, startCol);
                 }
                 return Token(TokenType::Greater, ">", startLine, startCol);
 
             case '<':
-                Get();
+                Read();
                 if (Peek() == '=') {
-                    Get();
+                    Read();
                     return Token(TokenType::LessEqual, "<=", startLine, startCol);
                 }
                 return Token(TokenType::Less, "<", startLine, startCol);
 
-            case '+': Get(); return Token(TokenType::Plus, "+", startLine, startCol);
-            case '-': Get(); return Token(TokenType::Minus, "-", startLine, startCol);
-            case '*': Get(); return Token(TokenType::Star, "*", startLine, startCol);
+            case '+': Read(); return Token(TokenType::Plus, "+", startLine, startCol);
+            case '-': Read(); return Token(TokenType::Minus, "-", startLine, startCol);
+            case '*': Read(); return Token(TokenType::Star, "*", startLine, startCol);
 
             case '/':
                 if (PeekNext() == '/') {
                     SkipCommentIfAny();
                     continue;
                 }
-                Get();
+                Read();
                 return Token(TokenType::Slash, "/", startLine, startCol);
 
-            case '(': Get(); return Token(TokenType::LParen, "(", startLine, startCol);
-            case ')': Get(); return Token(TokenType::RParen, ")", startLine, startCol);
-            case '{': Get(); return Token(TokenType::LBrace, "{", startLine, startCol);
-            case '}': Get(); return Token(TokenType::RBrace, "}", startLine, startCol);
-            case ',': Get(); return Token(TokenType::Comma, ",", startLine, startCol);
+            case '(': Read(); return Token(TokenType::LParen, "(", startLine, startCol);
+            case ')': Read(); return Token(TokenType::RParen, ")", startLine, startCol);
+            case '{': Read(); return Token(TokenType::LBrace, "{", startLine, startCol);
+            case '}': Read(); return Token(TokenType::RBrace, "}", startLine, startCol);
+            case ',': Read(); return Token(TokenType::Comma, ",", startLine, startCol);
         }
 
-        throw std::runtime_error(
-            "Unexpected character '" + std::string(1, c) +
-            "' at line " + std::to_string(line) +
-            ", column " + std::to_string(column)
-        );
+        throw LexError(startLine, startCol, std::string("Unexpected character '") + c + "'");
     }
 }

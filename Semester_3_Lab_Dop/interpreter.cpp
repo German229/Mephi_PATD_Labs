@@ -1,4 +1,3 @@
-// interpreter.cpp
 #include "interpreter.h"
 
 #include <cmath>
