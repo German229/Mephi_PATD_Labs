@@ -5,16 +5,6 @@
 #include <cmath>
 
 /*
- * Имя выборки по умолчанию.
- *
- * Все значения, добавленные через collect,
- * попадают в эту выборку.
- */
-namespace {
-    const char* DEFAULT_SAMPLE_NAME = "default";
-}
-
-/*
  * Конструктор интерпретатора.
  *
  * Инициализирует:
@@ -70,8 +60,12 @@ void Interpreter::ExecuteStatement(Stmt* stmt) {
 
     // ---------- collect ----------
     if (auto* collectStmt = dynamic_cast<CollectStmt*>(stmt)) {
+        if (collectStmt->sampleName.empty()) {
+            throw std::runtime_error("collect requires an explicit sample name");
+        }
+
         Value val = EvaluateExpression(collectStmt->expression.get());
-        env.CollectSample(DEFAULT_SAMPLE_NAME, val);
+        env.CollectSample(collectStmt->sampleName, val);
         return;
     }
 
@@ -185,6 +179,25 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
     if (auto* call = dynamic_cast<CallExpr*>(expr)) {
         const std::string& name = call->callee;
         const auto& args = call->args;
+        // ===== Явная статистика (требование ЛР) =====
+        // get_stat("mean", A), get_stat("count", l), ...
+        if (name == "get_stat") {
+            if (args.size() != 2) {
+                throw std::runtime_error("get_stat() expects 2 arguments: get_stat(\"mean\", A)");
+            }
+
+            auto* stat = dynamic_cast<StringExpr*>(args[0].get());
+            if (!stat) {
+                throw std::runtime_error("get_stat(): first argument must be a string literal, e.g. \"mean\"");
+            }
+
+            auto* sample = dynamic_cast<SampleRefExpr*>(args[1].get());
+            if (!sample) {
+                throw std::runtime_error("get_stat(): second argument must be a sample identifier, e.g. get_stat(\"mean\", A)");
+            }
+
+            return Value::FromNumber(GetSampleStat(stat->value, sample->name));
+        }
 
         // ===== Распределения =====
 
@@ -234,13 +247,11 @@ Value Interpreter::EvaluateExpression(Expr* expr) {
 
         if (name == "mean" || name == "variance" ||
             name == "stddev" || name == "median" || name == "count") {
-
-            if (!args.empty()) {
-                throw std::runtime_error(name + "() does not accept arguments");
+                    throw std::runtime_error(
+                        "Implicit statistics are disabled. Use get_stat(\"" + name + "\", <sample>)"
+                    );
             }
 
-            return Value::FromNumber(GetSampleStat(name));
-        }
 
         throw std::runtime_error("Unknown function: " + name);
     }
@@ -260,11 +271,11 @@ void Interpreter::PrintValue(const Value& v) {
 /*
  * Получить статистическую характеристику выборки.
  */
-double Interpreter::GetSampleStat(const std::string& statName) {
-    const Sequence<Value>* seq = env.GetSample(DEFAULT_SAMPLE_NAME);
+double Interpreter::GetSampleStat(const std::string& statName, const std::string& sampleName) {
+    const Sequence<Value>* seq = env.GetSample(sampleName);
 
     if (!seq || seq->GetLength() == 0) {
-        throw std::runtime_error("No samples collected for statistics");
+        throw std::runtime_error("Sample '" + sampleName + "' is empty or does not exist");
     }
 
     if (statName == "mean")      return Statistics::Mean(*seq);
@@ -279,14 +290,6 @@ double Interpreter::GetSampleStat(const std::string& statName) {
 /*
  * Реализация оператора print_stat.
  */
-void Interpreter::ExecutePrintStat(const std::string& what) {
-    double value = GetSampleStat(what);
-
-    if (!out) return;
-
-    if (what == "count") {
-        (*out) << "count = " << static_cast<std::size_t>(value) << "\n";
-    } else {
-        (*out) << what << " = " << value << "\n";
-    }
+void Interpreter::ExecutePrintStat(const std::string&) {
+    throw std::runtime_error("print_stat is disabled. Use print(get_stat(\"mean\", <sample>))");
 }

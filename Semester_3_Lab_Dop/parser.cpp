@@ -85,9 +85,17 @@ std::unique_ptr<Stmt> Parser::ParseStatement() {
     }
 
     if (Match(TokenType::KeywordCollect)) {
+        if (!Check(TokenType::Identifier)) {
+            Error("Expected sample identifier after collect, e.g. collect A x");
+        }
+
+        std::string sampleName = current.text;
+        Advance();
+
         auto expr = ParseExpression();
-        return std::make_unique<CollectStmt>(std::move(expr));
+        return std::make_unique<CollectStmt>(std::move(sampleName), std::move(expr));
     }
+
 
     if (Match(TokenType::KeywordPrint)) {
         auto expr = ParseExpression();
@@ -291,9 +299,23 @@ void Parser::ParseCallArguments(CallExpr& call) {
         return;
     }
 
+    // 1) Первый аргумент всегда как обычное выражение
     call.args.push_back(ParseExpression());
 
+    // 2) Остальные аргументы
     while (Match(TokenType::Comma)) {
+        // Спец-правило для get_stat: второй аргумент — это ИМЯ ВЫБОРКИ, а не числовая переменная
+        if (call.callee == "get_stat" && call.args.size() == 1) {
+            if (!Check(TokenType::Identifier)) {
+                Error("Expected sample identifier as 2nd argument of get_stat, e.g. get_stat(\"mean\", A)");
+            }
+            std::string sampleName = current.text;
+            Advance();
+            call.args.push_back(std::make_unique<SampleRefExpr>(std::move(sampleName)));
+            continue;
+        }
+
+        // По умолчанию — обычное выражение
         call.args.push_back(ParseExpression());
     }
 
@@ -308,6 +330,12 @@ std::unique_ptr<Expr> Parser::ParsePrimary() {
         double v = std::strtod(current.text.c_str(), nullptr);
         Advance();
         return std::make_unique<NumberExpr>(v);
+    }
+
+    if (Check(TokenType::StringLiteral)) {
+        std::string s = current.text;
+        Advance();
+        return std::make_unique<StringExpr>(std::move(s));
     }
 
     if (Check(TokenType::Identifier)) {

@@ -98,5 +98,5 @@ private:
     /*
      * Получить значение статистической функции по выборке.
      */
-    double GetSampleStat(const std::string& statName);
+    double GetSampleStat(const std::string& statName, const std::string& sampleName);
 };
