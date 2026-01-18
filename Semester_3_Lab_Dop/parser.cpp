@@ -1,6 +1,5 @@
 #include "parser.h"
 
-#include <iostream>
 #include <cstdlib>
 
 /*
@@ -85,8 +84,15 @@ std::unique_ptr<Stmt> Parser::ParseStatement() {
     }
 
     if (Match(TokenType::KeywordCollect)) {
+        if (!Check(TokenType::Identifier)) {
+            Error("Expected sample identifier after collect, e.g. collect A x");
+        }
+
+        std::string sampleName = current.text;
+        Advance();
+
         auto expr = ParseExpression();
-        return std::make_unique<CollectStmt>(std::move(expr));
+        return std::make_unique<CollectStmt>(std::move(sampleName), std::move(expr));
     }
 
     if (Match(TokenType::KeywordPrint)) {
@@ -291,9 +297,79 @@ void Parser::ParseCallArguments(CallExpr& call) {
         return;
     }
 
+    // 1) Первый аргумент всегда как обычное выражение
     call.args.push_back(ParseExpression());
 
+    // Вытаскиваем имя статистики, если это get_stat("...", ...)
+    auto getStatNameLiteral = [&]() -> const std::string* {
+        if (call.callee != "get_stat") {
+            return nullptr;
+        }
+        if (call.args.empty()) {
+            return nullptr;
+        }
+        auto* s = dynamic_cast<StringExpr*>(call.args[0].get());
+        if (!s) {
+            return nullptr;
+        }
+        return &s->value;
+    };
+
+    auto isCovOrCorr = [&](const std::string& stat) -> bool {
+        return stat == "cov" || stat == "covariance" ||
+               stat == "corr" || stat == "correlation";
+    };
+
+    auto isMomentLike = [&](const std::string& stat) -> bool {
+        return stat == "moment" || stat == "central_moment";
+    };
+
+    // 2) Остальные аргументы
     while (Match(TokenType::Comma)) {
+
+        // Спец-правила для get_stat:
+        //  - 2-й аргумент ВСЕГДА имя выборки: get_stat("mean", A)
+        //  - 3-й аргумент:
+        //      * для moment/central_moment: k (обычное выражение)
+        //      * для cov/corr: имя выборки B (SampleRefExpr)
+        if (call.callee == "get_stat") {
+
+            // Разбираем 2-й аргумент (после stat-строки)
+            if (call.args.size() == 1) {
+                if (!Check(TokenType::Identifier)) {
+                    Error("Expected sample identifier as 2nd argument of get_stat, e.g. get_stat(\"mean\", A)");
+                }
+                std::string sampleName = current.text;
+                Advance();
+                call.args.push_back(std::make_unique<SampleRefExpr>(std::move(sampleName)));
+                continue;
+            }
+
+            // Разбираем 3-й аргумент (если он есть)
+            if (call.args.size() == 2) {
+                const std::string* statName = getStatNameLiteral();
+                if (statName && isCovOrCorr(*statName)) {
+                    if (!Check(TokenType::Identifier)) {
+                        Error("Expected sample identifier as 3rd argument of get_stat for cov/corr, e.g. get_stat(\"cov\", A, B)");
+                    }
+                    std::string sampleName = current.text;
+                    Advance();
+                    call.args.push_back(std::make_unique<SampleRefExpr>(std::move(sampleName)));
+                    continue;
+                }
+
+                // moment/central_moment (и вообще по умолчанию) — это выражение (k)
+                // Если stat не строковый литерал, оставляем поведение по умолчанию.
+                call.args.push_back(ParseExpression());
+                continue;
+            }
+
+            // Аргументы 4+ (если когда-то появятся) — обычные выражения
+            call.args.push_back(ParseExpression());
+            continue;
+        }
+
+        // По умолчанию — обычное выражение
         call.args.push_back(ParseExpression());
     }
 
@@ -308,6 +384,12 @@ std::unique_ptr<Expr> Parser::ParsePrimary() {
         double v = std::strtod(current.text.c_str(), nullptr);
         Advance();
         return std::make_unique<NumberExpr>(v);
+    }
+
+    if (Check(TokenType::StringLiteral)) {
+        std::string s = current.text;
+        Advance();
+        return std::make_unique<StringExpr>(std::move(s));
     }
 
     if (Check(TokenType::Identifier)) {

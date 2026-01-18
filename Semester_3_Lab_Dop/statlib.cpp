@@ -11,6 +11,47 @@ std::size_t Statistics::Count(const Sequence<Value>& seq) {
     return seq.GetLength();
 }
 
+double Statistics::Moment(const Sequence<Value>& seq, std::size_t k) {
+    std::size_t n = seq.GetLength();
+    if (n == 0) {
+        throw std::runtime_error("Cannot compute moment of empty sample");
+    }
+
+    if (k == 0) {
+        return 1.0;
+    }
+
+    double sum = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = seq.Get(i).AsNumber();
+        sum += std::pow(x, static_cast<double>(k));
+    }
+
+    return sum / static_cast<double>(n);
+}
+
+double Statistics::CentralMoment(const Sequence<Value>& seq, std::size_t k) {
+    std::size_t n = seq.GetLength();
+    if (n == 0) {
+        throw std::runtime_error("Cannot compute central moment of empty sample");
+    }
+
+    if (k == 0) {
+        return 1.0;
+    }
+
+    double mean = Moment(seq, 1);
+    double sum = 0.0;
+
+    for (std::size_t i = 0; i < n; ++i) {
+        double x = seq.Get(i).AsNumber();
+        double d = x - mean;
+        sum += std::pow(d, static_cast<double>(k));
+    }
+
+    return sum / static_cast<double>(n);
+}
+
 /*
  * Вычисляет среднее арифметическое значений в выборке.
  *
@@ -20,18 +61,7 @@ std::size_t Statistics::Count(const Sequence<Value>& seq) {
  * Выборка должна быть непустой.
  */
 double Statistics::Mean(const Sequence<Value>& seq) {
-    std::size_t n = seq.GetLength();
-    if (n == 0) {
-        throw std::runtime_error("Cannot compute mean of empty sample");
-    }
-
-    double sum = 0.0;
-    for (std::size_t i = 0; i < n; ++i) {
-        const Value& v = seq.Get(i);
-        sum += v.AsNumber();
-    }
-
-    return sum / static_cast<double>(n);
+    return Moment(seq, 1);
 }
 
 /*
@@ -43,21 +73,7 @@ double Statistics::Mean(const Sequence<Value>& seq) {
  * Используется population variance, а не несмещённая оценка.
  */
 double Statistics::Variance(const Sequence<Value>& seq) {
-    std::size_t n = seq.GetLength();
-    if (n == 0) {
-        throw std::runtime_error("Cannot compute variance of empty sample");
-    }
-
-    double mean = Mean(seq);
-    double sumSq = 0.0;
-
-    for (std::size_t i = 0; i < n; ++i) {
-        double x = seq.Get(i).AsNumber();
-        double diff = x - mean;
-        sumSq += diff * diff;
-    }
-
-    return sumSq / static_cast<double>(n);
+    return CentralMoment(seq, 2);
 }
 
 /*
@@ -67,8 +83,7 @@ double Statistics::Variance(const Sequence<Value>& seq) {
  *   stddev = sqrt(variance)
  */
 double Statistics::StdDev(const Sequence<Value>& seq) {
-    double var = Variance(seq);
-    return std::sqrt(var);
+    return std::sqrt(CentralMoment(seq, 2));
 }
 
 /*
@@ -97,11 +112,69 @@ double Statistics::Median(const Sequence<Value>& seq) {
     std::sort(data.begin(), data.end());
 
     if (n % 2 == 1) {
-        // Нечётное число элементов — центральный элемент
         return data[n / 2];
     } else {
-        // Чётное — среднее двух центральных
         std::size_t mid = n / 2;
         return (data[mid - 1] + data[mid]) / 2.0;
     }
+}
+
+/*
+ * Ковариация двух выборок (population covariance).
+ */
+double Statistics::Covariance(const Sequence<Value>& x, const Sequence<Value>& y) {
+    std::size_t nx = x.GetLength();
+    std::size_t ny = y.GetLength();
+
+    if (nx == 0 || ny == 0) {
+        throw std::runtime_error("Cannot compute covariance of empty sample");
+    }
+
+    if (nx != ny) {
+        throw std::runtime_error("Cannot compute covariance: sample sizes differ");
+    }
+
+    double meanX = Mean(x);
+    double meanY = Mean(y);
+
+    double sum = 0.0;
+    for (std::size_t i = 0; i < nx; ++i) {
+        double xi = x.Get(i).AsNumber();
+        double yi = y.Get(i).AsNumber();
+        sum += (xi - meanX) * (yi - meanY);
+    }
+
+    return sum / static_cast<double>(nx);
+}
+
+/*
+ * Коэффициент корреляции Пирсона.
+ */
+double Statistics::Correlation(const Sequence<Value>& x, const Sequence<Value>& y) {
+    std::size_t nx = x.GetLength();
+    std::size_t ny = y.GetLength();
+
+    if (nx == 0 || ny == 0) {
+        throw std::runtime_error("Cannot compute correlation of empty sample");
+    }
+
+    if (nx != ny) {
+        throw std::runtime_error("Cannot compute correlation: sample sizes differ");
+    }
+
+    double sx = StdDev(x);
+    double sy = StdDev(y);
+
+    if (!(sx > 0.0) || !(sy > 0.0) || !std::isfinite(sx) || !std::isfinite(sy)) {
+        throw std::runtime_error("Cannot compute correlation: stddev must be finite and > 0 for both samples");
+    }
+
+    double cov = Covariance(x, y);
+    double r = cov / (sx * sy);
+
+    if (!std::isfinite(r)) {
+        throw std::runtime_error("Cannot compute correlation: result is not finite");
+    }
+
+    return r;
 }

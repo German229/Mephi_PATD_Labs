@@ -48,6 +48,28 @@ struct VariableExpr : public Expr {
 };
 
 /*
+ * Строковый литерал.
+ * Нужен для вызовов вида: get_stat("count", l)
+ */
+struct StringExpr : public Expr {
+    std::string value;
+
+    explicit StringExpr(std::string v)
+        : value(std::move(v)) {}
+};
+
+/*
+ * Ссылка на выборку по имени (НЕ числовая переменная).
+ * Нужна для явных выборок: get_stat("mean", A)
+ */
+struct SampleRefExpr : public Expr {
+    std::string name;
+
+    explicit SampleRefExpr(std::string n)
+        : name(std::move(n)) {}
+};
+
+/*
  * Перечисление унарных операторов.
  */
 enum class UnaryOp {
@@ -161,13 +183,23 @@ struct PrintStatStmt : public Stmt {
 
 /*
  * Оператор сбора значения в выборку:
- *   collect expression
+ *   collect <sample> <expression>
+ *
+ * sampleName — имя поименованной выборки.
  */
 struct CollectStmt : public Stmt {
+    std::string sampleName;
     std::unique_ptr<Expr> expression;
 
+    CollectStmt(std::string sample, std::unique_ptr<Expr> expr)
+        : sampleName(std::move(sample)),
+          expression(std::move(expr)) {}
+
+    // Временно оставляем старую форму конструктора, чтобы проект не развалился на шаге.
+    // После следующего шага парсер перестанет её использовать.
     explicit CollectStmt(std::unique_ptr<Expr> expr)
-        : expression(std::move(expr)) {}
+        : sampleName(""),
+          expression(std::move(expr)) {}
 };
 
 /*

@@ -1,7 +1,9 @@
 #pragma once
 
-#include <random>
+#include <cstddef>
 #include <ostream>
+#include <random>
+#include <string>
 
 #include "ast.h"
 #include "environment.h"
@@ -17,6 +19,14 @@
  *  - исполняет операторы,
  *  - управляет окружением исполнения (переменные и выборки),
  *  - предоставляет встроенные функции распределений и статистики.
+ *
+ * Важно:
+ *  - статистика в языке работает только через явную выборку:
+ *      get_stat("mean", A)
+ *      get_stat("moment", A, 2)
+ *      get_stat("covariance", A, B)
+ *      get_stat("correlation", A, B)
+ *  - скрытой выборки по умолчанию нет.
  */
 class Interpreter {
 public:
@@ -24,22 +34,16 @@ public:
      * Конструктор интерпретатора.
      *
      * @param seed начальное значение для генератора случайных чисел.
-     *             По умолчанию используется фиксированное значение,
-     *             что обеспечивает воспроизводимость результатов.
      */
     explicit Interpreter(unsigned int seed = 5489u);
 
     /*
-     * Установить поток вывода для операторов print и print_stat.
-     *
-     * По умолчанию используется std::cout.
+     * Установить поток вывода для оператора print.
      */
     void SetOutputStream(std::ostream& os);
 
     /*
      * Выполнить программу целиком.
-     *
-     * @param program корневой узел AST, представляющий программу.
      */
     void ExecuteProgram(const Program& program);
 
@@ -54,49 +58,56 @@ private:
     //                 Внутреннее состояние
     // =========================================================
 
-    Environment env;     // Окружение исполнения (переменные и выборки)
-    std::mt19937 rng;    // Генератор случайных чисел
-    std::ostream* out;  // Поток вывода для print и print_stat
+    Environment env;
+    std::mt19937 rng;
+    std::ostream* out;
 
     // =========================================================
     //               Исполнение операторов
     // =========================================================
 
-    /*
-     * Выполнить один оператор AST.
-     */
     void ExecuteStatement(Stmt* stmt);
-
-    /*
-     * Выполнить блок операторов.
-     */
     void ExecuteBlock(BlockStmt* block);
 
     // =========================================================
     //               Вычисление выражений
     // =========================================================
 
-    /*
-     * Вычислить значение выражения.
-     */
     Value EvaluateExpression(Expr* expr);
 
     // =========================================================
     //               Вспомогательные методы
     // =========================================================
 
-    /*
-     * Вывести значение в поток вывода.
-     */
     void PrintValue(const Value& v);
 
     /*
-     * Вывести статистическую величину по выборке.
+     * print_stat отключён.
      */
     void ExecutePrintStat(const std::string& what);
 
     /*
-     * Получить значение статистической функции по выборке.
+     * 2-аргументная статистика:
+     *   get_stat("mean", A)
+     *   get_stat("variance", A)
+     *   get_stat("stddev", A)
+     *   get_stat("median", A)
+     *   get_stat("count", A)
      */
-    double GetSampleStat(const std::string& statName);
+    double GetSampleStat(const std::string& statName, const std::string& sampleName);
+
+    /*
+     * 3-аргументная статистика с k:
+     *   get_stat("moment", A, k)
+     *   get_stat("central_moment", A, k)
+     */
+    double GetSampleStat(const std::string& statName, const std::string& sampleName, std::size_t k);
+
+    /*
+     * 3-аргументная статистика по двум выборкам:
+     *   get_stat("covariance", A, B)
+     *   get_stat("correlation", A, B)
+     *   get_stat("corr", A, B)
+     */
+    double GetSampleStat(const std::string& statName, const std::string& sampleX, const std::string& sampleY);
 };
